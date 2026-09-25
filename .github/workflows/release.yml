@@ -103,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download NuGet artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: nuget-packages
           path: ./nupkg
@@ -138,7 +138,7 @@ jobs:
           fetch-depth: 0  # Full history needed for the changelog extraction
 
       - name: Download NuGet artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: nuget-packages
           path: ./nupkg
