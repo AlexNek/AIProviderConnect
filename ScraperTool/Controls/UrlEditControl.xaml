@@ -1,0 +1,40 @@
+<UserControl x:Class="ScraperTool.Controls.UrlEditControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d" d:DesignHeight="64" d:DesignWidth="400">
+    <Grid ToolTip="{Binding ToolTip, RelativeSource={RelativeSource AncestorType=UserControl}}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Label Grid.Row="0" x:Name="LabelElement" Padding="0,0,0,2" />
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox Grid.Column="0" x:Name="UrlTextBox"
+                     Text="{Binding Url, RelativeSource={RelativeSource AncestorType=UserControl}, UpdateSourceTrigger=PropertyChanged}"
+                     VerticalContentAlignment="Center" Padding="6,3" />
+
+            <Button Grid.Column="1" x:Name="OpenButton"
+                    Command="{Binding OpenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding CommandParameter, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    ToolTip="Open link in browser"
+                    Padding="6,3" Margin="6,0,0,0"
+                    Background="Transparent" BorderThickness="1" BorderBrush="#CCC"
+                    VerticalAlignment="Stretch">
+                <Path Data="M2,10 L10,2 M10,2 L4,2 M10,2 L10,8"
+                      Stroke="{Binding Foreground, ElementName=OpenButton}"
+                      StrokeThickness="1.6"
+                      Stretch="Uniform"
+                      Width="12" Height="12" />
+            </Button>
+        </Grid>
+    </Grid>
+</UserControl>

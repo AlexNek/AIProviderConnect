@@ -1,0 +1,172 @@
+{
+  "treeId": "apiPricingUrl",
+  "name": "API Pricing URL Discovery",
+  "description": "Finds the API pricing page URL for an AI provider by scanning links, classifying pages, and verifying reachability.",
+  "version": 2,
+  "systemPrompt": "You are a classification assistant. Analyze the provided page content and classify it into exactly one of the allowed answers. Return JSON with 'answer', 'observation' (one short sentence), and optional 'confidence'.",
+  "task": "Find the API pricing page URL for {providerName}.",
+  "budget": {
+    "maxNodeVisits": 25,
+    "maxLlmCalls": 8,
+    "maxElapsedTime": "00:02:00",
+    "maxContextTokens": 4000
+  },
+  "startNodeId": "init-state",
+  "nodes": {
+    "init-state": {
+      "type": "action",
+      "name": "Initialize State",
+      "description": "Initializes the verification state from the current research data.",
+      "actionKey": "initVerificationState",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "is-self-hosted" },
+        { "condition": "transientFailure", "nextNodeId": "init-state" },
+        { "condition": "permanentFailure", "nextNodeId": "is-self-hosted" }
+      ]
+    },
+    "is-self-hosted": {
+      "type": "condition",
+      "name": "Is Self-Hosted Provider",
+      "description": "Checks whether the provider is self-hosted (a local application with no hosted API pricing page).",
+      "predicateKey": "isSelfHostedProvider",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "not-applicable" },
+        { "condition": "false", "nextNodeId": "record-current-fact" }
+      ]
+    },
+    "record-current-fact": {
+      "type": "action",
+      "name": "Record Current Fact",
+      "description": "Records the current field value as a verified fact in the research state.",
+      "actionKey": "recordCurrentFact",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "scan-provider-links" },
+        { "condition": "transientFailure", "nextNodeId": "record-current-fact" },
+        { "condition": "permanentFailure", "nextNodeId": "scan-provider-links" }
+      ]
+    },
+    "scan-provider-links": {
+      "type": "action",
+      "name": "Scan Provider Links",
+      "description": "Scans the provider website for candidate URLs matching the field purpose.",
+      "actionKey": "scanProviderLinks",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "has-candidates" },
+        { "condition": "transientFailure", "nextNodeId": "scan-provider-links" },
+        { "condition": "permanentFailure", "nextNodeId": "has-candidates" }
+      ]
+    },
+    "has-candidates": {
+      "type": "condition",
+      "name": "Has Candidates",
+      "description": "Checks whether any candidate URLs remain to be evaluated.",
+      "predicateKey": "hasCandidates",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "false", "nextNodeId": "web-search" }
+      ]
+    },
+    "fetch-next-candidate": {
+      "type": "action",
+      "name": "Fetch Next Candidate",
+      "description": "Fetches the next candidate URL from the queue for evaluation.",
+      "actionKey": "fetchNextCandidate",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "classify-page" },
+        { "condition": "transientFailure", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "permanentFailure", "nextNodeId": "candidates-exhausted" }
+      ]
+    },
+    "classify-page": {
+      "type": "classify",
+      "name": "Classify Page",
+      "description": "Uses the LLM to classify the fetched page content against the field purpose.",
+      "task": "Classify this page for the field purpose: finding the API pricing URL for {providerName}. Use the candidate URL (visible in State as lastFetchedUrl and in Data source) as a strong signal — paths containing /pricing, /billing, /plans, /costs suggest a pricing page; paths containing /api-reference/, /docs/, /models/, /guides/ suggest a non-pricing page. A page about a specific API endpoint (e.g. video generation, text chat) is NOT a pricing page even if it mentions token costs in passing. If the page covers both API and subscription pricing, answer 'both'. Navigation links to other pages do not define what this page IS — judge by the page's PRIMARY purpose. A page announcing that a service or product has been retired, deprecated, discontinued, or is no longer available is NOT a pricing page even if its URL path contains /billing/ or /pricing/ — classify it as 'unrelated'. IMPORTANT: The page MUST be hosted on the provider's own domain. A third-party page (different domain) that merely mentions the provider name or its products is NOT the provider's API pricing page — classify it as 'unrelated'. In your observation, always begin with the candidate URL (the lastFetchedUrl value from State) so the reader knows which page was classified.",
+      "answers": [
+        "api_pricing",
+        "subscription_pricing",
+        "both",
+        "login_wall",
+        "unrelated"
+      ],
+      "transitions": [
+        { "condition": "api_pricing", "nextNodeId": "verify-reachable" },
+        { "condition": "both", "nextNodeId": "verify-reachable" },
+        { "condition": "subscription_pricing", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "login_wall", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "unrelated", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "unknown", "nextNodeId": "fetch-next-candidate" }
+      ]
+    },
+    "verify-reachable": {
+      "type": "action",
+      "name": "Verify Reachable",
+      "description": "Verifies that the candidate URL is reachable via HTTP.",
+      "actionKey": "verifyReachable",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "is-reachable" },
+        { "condition": "transientFailure", "nextNodeId": "verify-reachable" },
+        { "condition": "permanentFailure", "nextNodeId": "fetch-next-candidate" }
+      ]
+    },
+    "is-reachable": {
+      "type": "condition",
+      "name": "Is Reachable",
+      "description": "Checks whether the last reachability verification succeeded.",
+      "predicateKey": "lastVerifySucceeded",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "win" },
+        { "condition": "false", "nextNodeId": "fetch-next-candidate" }
+      ]
+    },
+    "candidates-exhausted": {
+      "type": "condition",
+      "name": "Candidates Exhausted",
+      "description": "Checks whether any queued candidate is still untried in this run.",
+      "predicateKey": "hasUntriedCandidates",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "false", "nextNodeId": "web-search" }
+      ]
+    },
+    "web-search": {
+      "type": "action",
+      "name": "Web Search",
+      "description": "Searches the web for relevant URLs as a fallback strategy.",
+      "actionKey": "webSearch",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "has-search-results" },
+        { "condition": "transientFailure", "nextNodeId": "web-search" },
+        { "condition": "permanentFailure", "nextNodeId": "lose" }
+      ]
+    },
+    "has-search-results": {
+      "type": "condition",
+      "name": "Has Search Results",
+      "description": "Checks whether the web search produced a candidate that is still untried.",
+      "predicateKey": "hasUntriedCandidates",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "false", "nextNodeId": "lose" }
+      ]
+    },
+    "win": {
+      "type": "terminal",
+      "name": "Success",
+      "description": "Terminal node indicating a successful result.",
+      "verdict": "winner"
+    },
+    "lose": {
+      "type": "terminal",
+      "name": "Failure",
+      "description": "Terminal node indicating no result was found.",
+      "verdict": "null"
+    },
+    "not-applicable": {
+      "type": "terminal",
+      "name": "Not Applicable",
+      "description": "Terminal node indicating apiPricingUrl is not applicable for self-hosted providers.",
+      "verdict": "-"
+    }
+  }
+}

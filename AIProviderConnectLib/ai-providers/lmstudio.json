@@ -1,0 +1,22 @@
+{
+  "id": "lmstudio",
+  "displayName": "LM Studio",
+  "protocol": "OpenAICompatible",
+  "website": "https://lmstudio.ai/",
+  "loginUrl": "-",
+  "apiPricingUrl": "-",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://lmstudio.ai/docs/developer/openai-compat",
+  "baseUrl": "http://localhost:1234/v1/",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "SelfHosted",
+  "modelDescription": "Local AI platform",
+  "payAsYouGo": false,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": false,
+  "modelDiscoveryNotes": "Local only",
+  "minimumCommitment": "Free",
+  "hasFreeTier": true,
+  "isDynamicModelCatalog": true
+}

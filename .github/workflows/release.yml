@@ -1,0 +1,180 @@
+name: Release & Publish NuGet
+# Release pipeline for the AIProviderConnect NuGet package.
+#
+# Builds, tests, packs and then publishes to:
+#   1. NuGet.org      -> https://www.nuget.org/packages/AIProviderConnect
+#                        (requires repository secret NUGET_API_KEY)
+#   2. GitHub Release -> tag page with the .nupkg attached
+#
+# Two ways to start it:
+#   - push a v* tag  -> base version comes from the tag (v1.2.3 -> 1.2.3)
+#   - Run workflow   -> type the base version into the "version" input
+# In both cases GitVersion's commit count since the last tag (CommitsSince-
+# VersionSource) is appended as build number unless HEAD is the tag itself:
+# <base>.<commits since tag>, e.g. 1.0.0.12. The GitHub Release creates the
+# v<version> tag for manual runs.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Base version to publish, e.g. 1.0.0 (tag pushes use the tag instead)'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  PROJECT_PATH: AIProviderConnectLib/AIProviderConnectLib.csproj
+  TEST_PATH: AIProviderConnectLib.Tests/AIProviderConnectLib.Tests.csproj
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history needed for GitVersion
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v4.7.0
+        with:
+          versionSpec: '6.x'
+
+      - name: Determine version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v4.7.0
+        with:
+          useConfigFile: true
+
+      - name: Display version
+        run: |
+          echo "SemVer: ${{ steps.gitversion.outputs.semVer }}"
+          echo "NuGetVersion: ${{ steps.gitversion.outputs.nuGetVersionV2 }}"
+
+      # Base version: typed input for manual runs, GitVersion otherwise.
+      # GitVersion's CommitsSinceVersionSource is appended as build number:
+      # 1.0.0 + 12 commits since tag -> 1.0.0.12
+      - name: Determine effective version
+        id: version
+        run: |
+          BASE="${{ github.event.inputs.version }}"
+          if [ -z "$BASE" ]; then BASE="${{ steps.gitversion.outputs.majorMinorPatch }}"; fi
+          COUNT="${{ steps.gitversion.outputs.commitsSinceVersionSource }}"
+          if [ "$COUNT" -gt 0 ]; then VERSION="$BASE.$COUNT"; else VERSION="$BASE"; fi
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Effective version: $VERSION ($COUNT commit(s) since version source)"
+
+      # Scoped to the library + tests: ScraperTool is a Windows-only WPF app
+      # and the solution also lists sibling-repo projects.
+      - name: Restore
+        run: dotnet restore ${{ env.TEST_PATH }}
+
+      - name: Build
+        run: dotnet build ${{ env.TEST_PATH }} --configuration Release --no-restore /p:Version=${{ steps.version.outputs.value }}
+
+      - name: Test
+        run: dotnet test ${{ env.TEST_PATH }} --configuration Release --no-build --verbosity normal --filter "Category!=Integration"
+
+      - name: Pack
+        run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ./nupkg /p:PackageVersion=${{ steps.version.outputs.value }}
+
+      - name: Upload NuGet artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: nuget-packages
+          path: ./nupkg/*.nupkg
+
+  # Publishes the packed .nupkg to NuGet.org.
+  publish-nuget:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download NuGet artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: nuget-packages
+          path: ./nupkg
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Check NuGet API key
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        if: ${{ env.NUGET_API_KEY == '' }}
+        run: |
+          echo "::error::NUGET_API_KEY repository secret is not set."
+          echo "Create an API key on nuget.org and add it under"
+          echo "Settings -> Secrets and variables -> Actions, then re-run this release."
+          exit 1
+
+      - name: Publish to NuGet.org
+        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+  # Creates the GitHub Release and attaches the .nupkg.
+  # For manual runs this also creates the v<version> tag at the current commit.
+  publish-github-release:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history needed for the changelog extraction
+
+      - name: Download NuGet artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: nuget-packages
+          path: ./nupkg
+
+      # Release notes come from the maintained CHANGELOG.md (Keep a Changelog):
+      # the section of the released version, or [Unreleased] when the version
+      # has no section yet. Content only, no section headers, no commit messages.
+      - name: Build release notes
+        run: |
+          VERSION="${{ needs.build-and-test.outputs.version }}"
+          BASE=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)(\.[0-9]+)?$/\1/')
+          TAG="v$VERSION"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            PREV=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          else
+            PREV=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          fi
+          if grep -q "^## \[$BASE\]" CHANGELOG.md; then SECTION="$BASE"; else SECTION="Unreleased"; fi
+          awk -v sec="$SECTION" '
+            /^## \[/ { show = (index($0, "## [" sec "]") == 1); next }
+            show { print }
+          ' CHANGELOG.md | sed '/./,$!d' > notes.md
+          if [ ! -s notes.md ]; then
+            echo "No user-facing changes recorded in CHANGELOG.md for $BASE." > notes.md
+          fi
+          if [ -n "$PREV" ]; then
+            {
+              echo ""
+              echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREV...$TAG"
+            } >> notes.md
+          fi
+          cat notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ needs.build-and-test.outputs.version }}
+          body_path: notes.md
+          files: ./nupkg/*.nupkg

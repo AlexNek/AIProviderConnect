@@ -1,0 +1,207 @@
+{
+  "treeId": "subscriptionPricingUrl",
+  "name": "Subscription Pricing URL Discovery",
+  "description": "Finds the subscription pricing page URL for an AI provider by scanning links, classifying pages, and verifying reachability.",
+  "version": 5,
+  "systemPrompt": "You are a classification assistant. Analyze the provided page content and classify it into exactly one of the allowed answers. Return JSON with 'answer', 'observation' (one short sentence), and optional 'confidence'.",
+  "task": "Find the subscription pricing page URL for {{providerName}}.",
+  "budget": {
+    "maxNodeVisits": 25,
+    "maxLlmCalls": 8,
+    "maxElapsedTime": "00:02:00",
+    "maxContextTokens": 4000
+  },
+  "startNodeId": "init-state",
+  "nodes": {
+    "init-state": {
+      "type": "action",
+      "name": "Initialize State",
+      "description": "Initializes the verification state from the current research data.",
+      "actionKey": "initVerificationState",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "is-self-hosted" },
+        { "condition": "transientFailure", "nextNodeId": "init-state" },
+        { "condition": "permanentFailure", "nextNodeId": "is-self-hosted" }
+      ]
+    },
+    "is-self-hosted": {
+      "type": "condition",
+      "name": "Is Self-Hosted Provider",
+      "description": "Checks whether the provider is self-hosted (a local application with no subscription plans to price).",
+      "predicateKey": "isSelfHostedProvider",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "not-applicable" },
+        { "condition": "false", "nextNodeId": "record-current-fact" }
+      ]
+    },
+    "record-current-fact": {
+      "type": "action",
+      "name": "Record Current Fact",
+      "description": "Records the current field value as a verified fact in the research state.",
+      "actionKey": "recordCurrentFact",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "scan-sibling-links" },
+        { "condition": "transientFailure", "nextNodeId": "record-current-fact" },
+        { "condition": "permanentFailure", "nextNodeId": "scan-sibling-links" }
+      ]
+    },
+    "scan-sibling-links": {
+      "type": "action",
+      "name": "Scan Sibling Links",
+      "description": "Scans known-good sibling pages (apiPricingUrl, documentationUrl) for <a href> links — these pages often link to the subscription pricing page.",
+      "actionKey": "scanProviderLinks",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "has-sibling-candidates" },
+        { "condition": "transientFailure", "nextNodeId": "scan-sibling-links" },
+        { "condition": "permanentFailure", "nextNodeId": "has-sibling-candidates" }
+      ]
+    },
+    "has-sibling-candidates": {
+      "type": "condition",
+      "name": "Has Sibling Candidates",
+      "description": "Checks whether sibling page scanning produced any candidates.",
+      "predicateKey": "hasCandidates",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "false", "nextNodeId": "scan-provider-links" }
+      ]
+    },
+    "scan-provider-links": {
+      "type": "action",
+      "name": "Scan Provider Links",
+      "description": "Scans the provider website homepage for candidate URLs as a fallback.",
+      "actionKey": "scanProviderLinks",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "has-candidates" },
+        { "condition": "transientFailure", "nextNodeId": "scan-provider-links" },
+        { "condition": "permanentFailure", "nextNodeId": "has-candidates" }
+      ]
+    },
+    "has-candidates": {
+      "type": "condition",
+      "name": "Has Candidates",
+      "description": "Checks whether any candidate URLs remain to be evaluated.",
+      "predicateKey": "hasCandidates",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "false", "nextNodeId": "web-search" }
+      ]
+    },
+    "fetch-next-candidate": {
+      "type": "action",
+      "name": "Fetch Next Candidate",
+      "description": "Fetches the next candidate URL from the queue for evaluation.",
+      "actionKey": "fetchNextCandidate",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "classify-page" },
+        { "condition": "transientFailure", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "permanentFailure", "nextNodeId": "candidates-exhausted" }
+      ]
+    },
+    "classify-page": {
+      "type": "classify",
+      "name": "Classify Page",
+      "description": "Uses the LLM to classify the fetched page content against the field purpose.",
+      "task": "Classify this page for the field purpose: finding the subscription pricing URL for {providerName}. The page CONTENT is the deciding factor; the candidate URL (visible in State as lastFetchedUrl and in Data source) is only a supporting signal. Paths containing /pricing, /plans, /billing, /subscribe, /token-plan suggest a pricing page — this holds EVEN when the pricing segment appears under /docs/ (e.g. /docs/pricing/overview IS a pricing page, not a generic documentation page). Only treat /api-reference/, /models/, /guides/, or /docs/ paths that have NO pricing/plans/billing/subscribe segment as non-pricing. Classify as 'subscription_pricing' only when the page states a recurring price — an amount bound to a period (per month, per year, per seat, billed monthly or annually); classify as 'both' when the same page displays BOTH pay-per-token API pricing AND such a recurring subscription price. Classify as 'no_subscription' when the page is the provider's own pricing or plans page and there is NO subscription: billing is usage-based only — pay-as-you-go, prepaid credits, a percentage platform fee, per-token or per-request prices, 'no minimum spend', 'pay only for what you use' — with no recurring amount anywhere on the page. A tier or plan comparison table does not by itself make a subscription: Free / Pay-as-you-go / Enterprise columns are 'no_subscription' when none of them carries a recurring price. Keep 'api_pricing' for a per-token price list that says nothing either way about whether a subscription product exists. A pure model-description or API-reference page with no subscription tiers is NOT a subscription pricing page even if it mentions pricing or token plans in navigation. Navigation links to other pages do not define what this page IS. A page announcing that a service or product has been retired, deprecated, discontinued, or is no longer available is NOT a pricing page even if its URL path contains /billing/ or /pricing/ — classify it as 'unrelated'. IMPORTANT: The page MUST be hosted on the provider's own domain. A third-party page (different domain) that merely mentions the provider name or its products is NOT the provider's subscription pricing page — classify it as 'unrelated'. In your observation, always begin with the candidate URL (the lastFetchedUrl value from State) so the reader knows which page was classified.",
+      "answers": [
+        "subscription_pricing",
+        "api_pricing",
+        "both",
+        "no_subscription",
+        "contact_sales",
+        "login_wall",
+        "unrelated"
+      ],
+      "transitions": [
+        { "condition": "subscription_pricing", "nextNodeId": "page-confirms-subscription" },
+        { "condition": "both", "nextNodeId": "page-confirms-subscription" },
+        { "condition": "api_pricing", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "no_subscription", "nextNodeId": "not-applicable" },
+        { "condition": "contact_sales", "nextNodeId": "not-applicable" },
+        { "condition": "login_wall", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "unrelated", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "unknown", "nextNodeId": "fetch-next-candidate" }
+      ]
+    },
+    "page-confirms-subscription": {
+      "type": "condition",
+      "name": "Page Confirms Subscription",
+      "description": "Deterministically verifies the classifier's positive subscription answer against the page that was actually fetched. The answer is overridden to not applicable ('-') only when that page positively declares usage-based billing ('pay as you go') AND never mentions the word 'subscription' — the signature of a per-token price list misread as recurring pricing. A page that mentions 'subscription', or declares neither signal, is left to the classifier.",
+      "predicateKey": "pageConfirmsSubscription",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "verify-reachable" },
+        { "condition": "false", "nextNodeId": "not-applicable" }
+      ]
+    },
+    "verify-reachable": {
+      "type": "action",
+      "name": "Verify Reachable",
+      "description": "Verifies that the candidate URL is reachable via HTTP.",
+      "actionKey": "verifyReachable",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "is-reachable" },
+        { "condition": "transientFailure", "nextNodeId": "verify-reachable" },
+        { "condition": "permanentFailure", "nextNodeId": "fetch-next-candidate" }
+      ]
+    },
+    "is-reachable": {
+      "type": "condition",
+      "name": "Is Reachable",
+      "description": "Checks whether the last reachability verification succeeded.",
+      "predicateKey": "lastVerifySucceeded",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "win" },
+        { "condition": "false", "nextNodeId": "fetch-next-candidate" }
+      ]
+    },
+    "candidates-exhausted": {
+      "type": "condition",
+      "name": "Candidates Exhausted",
+      "description": "Checks whether any queued candidate is still untried in this run.",
+      "predicateKey": "hasUntriedCandidates",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "false", "nextNodeId": "web-search" }
+      ]
+    },
+    "web-search": {
+      "type": "action",
+      "name": "Web Search",
+      "description": "Searches the web for relevant URLs as a fallback strategy.",
+      "actionKey": "webSearch",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "has-search-results" },
+        { "condition": "transientFailure", "nextNodeId": "web-search" },
+        { "condition": "permanentFailure", "nextNodeId": "lose" }
+      ]
+    },
+    "has-search-results": {
+      "type": "condition",
+      "name": "Has Search Results",
+      "description": "Checks whether the web search produced a candidate that is still untried.",
+      "predicateKey": "hasUntriedCandidates",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "false", "nextNodeId": "lose" }
+      ]
+    },
+    "win": {
+      "type": "terminal",
+      "name": "Success",
+      "description": "Terminal node indicating a successful result.",
+      "verdict": "winner"
+    },
+    "lose": {
+      "type": "terminal",
+      "name": "Failure",
+      "description": "Terminal node indicating no result was found.",
+      "verdict": "null"
+    },
+    "not-applicable": {
+      "type": "terminal",
+      "name": "Not Applicable",
+      "description": "Terminal node indicating the field is not applicable to this provider.",
+      "verdict": "-"
+    }
+  }
+}

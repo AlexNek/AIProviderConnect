@@ -1,0 +1,91 @@
+site_name: AIProviderConnect Developer Manual
+site_description: Developer manual for AIProviderConnect — unified .NET library for connecting to 17+ AI providers
+site_url: https://alexnek.github.io/AIProviderConnect/
+repo_url: https://github.com/AlexNek/AIProviderConnect
+repo_name: AlexNek/AIProviderConnect
+
+theme:
+  name: material
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue grey
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue grey
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+      - Dependency Injection: getting-started/dependency-injection.md
+  - Concepts:
+      - Provider Catalog: concepts/provider-catalog.md
+      - Wire Protocols: concepts/wire-protocols.md
+      - Error Handling: concepts/error-handling.md
+  - Chat:
+      - Chat Completions: chat/chat-completions.md
+      - Streaming: chat/streaming.md
+      - Tool Calling: chat/tool-calling.md
+  - Model Discovery:
+      - Model Discovery: model-discovery/model-discovery.md
+  - API Reference:
+      - Core Interfaces: api-reference/interfaces.md
+      - Models: api-reference/models.md
+      - DI Extensions: api-reference/di-extensions.md
+  - FAQ: faq.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.keys
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/AlexNek/AIProviderConnect

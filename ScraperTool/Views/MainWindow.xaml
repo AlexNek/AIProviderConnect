@@ -1,0 +1,133 @@
+<Window x:Class="ScraperTool.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:c="clr-namespace:ScraperTool.Converters"
+        xmlns:vm="clr-namespace:ScraperTool.ViewModels"
+        xmlns:controls="clr-namespace:ScraperTool.Controls"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
+        Title="AI Provider Catalog Researcher"
+        Icon="/application.ico"
+        Height="750" Width="1200" MinWidth="400"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Segoe UI" FontSize="13"
+        ShowInTaskbar="True">
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:ScrapePanelViewModel}">
+            <controls:ScrapePanelControl />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:CheckDataPanelViewModel}">
+            <controls:CheckDataPanelControl />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:AiUsageHistoryViewModel}">
+            <controls:AiUsageHistoryControl />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ProviderManualEditorViewModel}">
+            <controls:ProviderManualEditorControl />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DecisionTreeViewerViewModel}">
+            <controls:DecisionTreeViewerControl />
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <!-- Dashboard -->
+        <Grid Visibility="{Binding ShowingDashboard, Converter={StaticResource BoolToVis}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid Background="#F5F9FF" Margin="48">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="AI Provider Catalog Researcher" FontSize="28" FontWeight="Light"
+                                   Foreground="#1A1A2E" Margin="0,0,0,8" HorizontalAlignment="Center"
+                                   TextWrapping="Wrap" TextAlignment="Center" />
+                        <TextBlock Text="Research and validate AI provider definitions, fix issues with AI assistance, and scrape model pricing. A demo application for the AIProviderConnect package."
+                                   FontSize="15" Foreground="#555" TextWrapping="Wrap" Margin="0,0,0,32" HorizontalAlignment="Center" />
+
+                        <TextBlock Text="Actions" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="#333" Margin="0,0,0,8" HorizontalAlignment="Center" />
+                        <WrapPanel HorizontalAlignment="Center" Margin="0,0,0,32">
+                            <controls:DashboardTile Title="Scrape Prices" Description="Fetch model prices"
+                                                    Command="{Binding GoToScrapePanelCommand}"
+                                                    TileBackground="#0078D4"
+                                                    ToolTip="Scrape model prices from all configured providers" />
+                            <controls:DashboardTile Title="Check provider data" Description="Validate &amp; analyze definitions"
+                                                    Command="{Binding GoToCheckDataPanelCommand}"
+                                                    TileBackground="#009688" DescriptionForeground="#B2DFDB"
+                                                    ToolTip="Validate provider definitions, fix broken URLs with AI, and run deep AI analysis for semantic review" />
+                            <controls:DashboardTile Title="Manual Editor" Description="Edit provider definitions"
+                                                    Command="{Binding GoToManualEditorCommand}"
+                                                    TileBackground="#5C6BC0" DescriptionForeground="#C5CAE9"
+                                                    ToolTip="Select a provider and edit all properties without touching JSON" />
+                        </WrapPanel>
+
+                        <TextBlock Text="Settings" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="#333" Margin="0,0,0,8" HorizontalAlignment="Center" />
+                        <WrapPanel HorizontalAlignment="Center" Margin="0,0,0,24">
+                            <controls:DashboardTile Title="AI Setup" Description="Set up provider, key &amp; models"
+                                                    Command="{Binding OpenAiSetupCommand}"
+                                                    TileBackground="#E8E8F0" TitleForeground="#333" DescriptionForeground="#666"
+                                                    TileHeight="100"
+                                                    ToolTip="Configure AI provider connection" />
+                            <controls:DashboardTile Title="Settings" Description="Database &amp; paths"
+                                                    Command="{Binding OpenSettingsCommand}"
+                                                    TileBackground="#E8E8F0" TitleForeground="#333" DescriptionForeground="#666"
+                                                    TileHeight="100"
+                                                    ToolTip="Configure database and provider manifests path" />
+                            <controls:DashboardTile Title="Decision Tree Viewer" Description="Decision tree visualization"
+                                                    Command="{Binding GoToDecisionTreeViewerCommand}"
+                                                    TileBackground="#E8E8F0" TitleForeground="#333" DescriptionForeground="#666"
+                                                    TileHeight="100"
+                                                    ToolTip="View and visualize decision tree JSON files as DOT graphs" />
+                        </WrapPanel>
+
+                        <Border Background="#F5F5F5" BorderBrush="#DDD" BorderThickness="1" CornerRadius="6" Padding="12"
+                                HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding ProviderCountLabel}" Foreground="#777" VerticalAlignment="Center" FontSize="12" />
+                        </Border>
+
+                        <TextBlock Text="History" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="#333" Margin="0,16,0,8" HorizontalAlignment="Center" />
+                        <WrapPanel HorizontalAlignment="Center">
+                            <controls:DashboardTile Title="AI Usage History" Description="Token &amp; cost log"
+                                                    Command="{Binding GoToAiUsageHistoryCommand}"
+                                                    TileBackground="#F0F8FF" TitleForeground="#1A1A2E" DescriptionForeground="#555"
+                                                    TileBorderBrush="#B8D4F0" TileBorderThickness="1"
+                                                    ToolTip="View AI token usage history and cost summary" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+
+            <Border Grid.Row="1" Background="#E8E8E8" Padding="12,6">
+                <TextBlock Text="Ready" Foreground="#555" FontSize="12" />
+            </Border>
+        </Grid>
+
+        <!-- Work panel -->
+        <Grid Visibility="{Binding ShowingWorkPanel, Converter={StaticResource BoolToVis}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Top bar -->
+            <Border Grid.Row="0" Background="#F0F0F0" Padding="12,8">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="&#x2190; Back to dashboard" Command="{Binding ShowDashboardCommand}"
+                            Background="Transparent" BorderThickness="0" Foreground="#0078D4" Cursor="Hand" FontWeight="SemiBold" />
+                    <Separator Margin="12,0" />
+                    <TextBlock Text="{Binding WorkTitle}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <!-- Panel content -->
+            <ContentControl Grid.Row="1" Content="{Binding CurrentPanel}" />
+        </Grid>
+    </Grid>
+</Window>

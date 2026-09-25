@@ -1,0 +1,23 @@
+{
+  "id": "opencode-zen",
+  "displayName": "OpenCode Zen",
+  "protocol": "HybridGateway",
+  "website": "https://opencode.ai/zen",
+  "loginUrl": "https://opencode.ai/auth",
+  "apiPricingUrl": "https://opencode.ai/docs/zen/",
+  "subscriptionPricingUrl": "https://opencode.ai/docs/zen",
+  "documentationUrl": "https://opencode.ai/docs/zen",
+  "baseUrl": "https://opencode.ai/zen/v1",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "HybridGateway",
+  "modelDescription": "Multi-provider gateway via OpenCode",
+  "payAsYouGo": true,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": true,
+  "modelDiscoveryNotes": "",
+  "minimumCommitment": "None",
+  "hasFreeTier": false,
+  "supportsFineTuning": false,
+  "minModelCount": 99
+}

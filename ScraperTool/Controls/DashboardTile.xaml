@@ -1,0 +1,50 @@
+<UserControl
+    x:Class="ScraperTool.Controls.DashboardTile"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Name="ThisControl">
+    <Border
+        x:Name="TileBorder"
+        Margin="6"
+        Background="{Binding TileBackground, ElementName=ThisControl}"
+        CornerRadius="8"
+        Cursor="Hand">
+        <Button
+            x:Name="TileButton"
+            Width="{Binding ElementName=ThisControl, Path=TileWidth}"
+            Height="{Binding ElementName=ThisControl, Path=TileHeight}"
+            Background="Transparent"
+            BorderThickness="0"
+            Command="{Binding ElementName=ThisControl, Path=Command}"
+            Cursor="Hand"
+            Foreground="{Binding ElementName=ThisControl, Path=TitleForeground}">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{Binding ElementName=ThisControl, Path=TileBorderBrush}"
+                        BorderThickness="{Binding ElementName=ThisControl, Path=TileBorderThickness}"
+                        CornerRadius="8">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Button.Template>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock
+                    x:Name="TitleBlock"
+                    HorizontalAlignment="Center"
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    Foreground="{Binding ElementName=ThisControl, Path=TitleForeground}"
+                    Text="{Binding ElementName=ThisControl, Path=Title}" />
+                <TextBlock
+                    x:Name="DescriptionBlock"
+                    Margin="0,6,0,0"
+                    HorizontalAlignment="Center"
+                    FontSize="11"
+                    Foreground="{Binding ElementName=ThisControl, Path=DescriptionForeground}"
+                    Text="{Binding ElementName=ThisControl, Path=Description}" />
+            </StackPanel>
+        </Button>
+    </Border>
+</UserControl>

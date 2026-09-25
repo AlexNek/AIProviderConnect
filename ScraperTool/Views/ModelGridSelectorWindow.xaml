@@ -1,0 +1,164 @@
+<Window x:Class="ScraperTool.Views.ModelGridSelectorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ScraperTool.Views"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=local:ModelGridSelectorWindow}"
+        Title="Select Model"
+        Height="560" Width="900"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI" FontSize="13"
+        ShowInTaskbar="False">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ScraperTool;component/Styles/Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Select a model:" Margin="0,0,0,6" Foreground="#555" />
+
+        <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,6">
+            <TextBlock Text="Filter by text" Foreground="#777" FontSize="11" Margin="0,0,0,2" />
+            <TextBox x:Name="FilterBox" Margin="0" 
+                 Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                 FontSize="13">
+                <TextBox.Style>
+                    <Style TargetType="TextBox">
+                        <Style.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter Property="Background">
+                                    <Setter.Value>
+                                        <VisualBrush Stretch="None" AlignmentX="Left">
+                                            <VisualBrush.Visual>
+                                                <TextBlock Text="Filter by id, description, owner…" Foreground="#AAA" Margin="4,2" />
+                                            </VisualBrush.Visual>
+                                        </VisualBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBox.Style>
+            </TextBox>
+            <TextBlock Text="Filter by modality" Foreground="#777" FontSize="11" Margin="0,10,0,2" />
+            <ComboBox x:Name="ModalityFilter" Width="260" HorizontalAlignment="Left"
+                      Margin="0,0,0,0" SelectedIndex="0"
+                      SelectionChanged="OnModalitySelectionChanged">
+                <ComboBoxItem Content="All" />
+                <ComboBoxItem Content="📝 text" />
+                <ComboBoxItem Content="🖼 image" />
+                <ComboBoxItem Content="🔊 audio" />
+                <ComboBoxItem Content="🎬 video" />
+                <ComboBoxItem Content="📄 file" />
+                <ComboBoxItem Content="💻 code" />
+            </ComboBox>
+        </StackPanel>
+
+        <DataGrid Grid.Row="2" x:Name="ModelGrid"
+                  ItemsSource="{Binding FilteredModels}" Loaded="OnModelGridLoaded"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  SelectionUnit="FullRow"
+                  HeadersVisibility="Column"
+                  RowHeaderWidth="0"
+                  GridLinesVisibility="Horizontal"
+                  BorderBrush="#DDD" BorderThickness="1"
+                  ClipboardCopyMode="IncludeHeader"
+                  MouseDoubleClick="OnRowDoubleClick">
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Copy selected row" Click="OnCopySelectedRow" InputGestureText="Ctrl+C" />
+                    <MenuItem Header="Copy cell value" Click="OnCopyCellValue" />
+                </ContextMenu>
+            </DataGrid.ContextMenu>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Model ID" Binding="{Binding Id}" Width="240">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="ToolTip" Value="{Binding Id}" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Modalities" Binding="{Binding Modalities}" Width="160" MinWidth="120">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center" />
+                            <Setter Property="ToolTip" Value="{Binding Modalities}" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Context" Binding="{Binding ContextWindow}" Width="80">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="Margin" Value="0,0,4,0" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Prompt, $/1M" Binding="{Binding PromptPrice}" Width="100">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="Margin" Value="0,0,4,0" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Completion, $/1M" Binding="{Binding CompletionPrice}" Width="120">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="Margin" Value="0,0,4,0" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridCheckBoxColumn Header="Free" Binding="{Binding IsFree}" Width="45" />
+                <DataGridTemplateColumn Header="Description" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Description}" TextTrimming="CharacterEllipsis">
+                                <TextBlock.ToolTip>
+                                    <ToolTip MaxWidth="420">
+                                        <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />
+                                    </ToolTip>
+                                </TextBlock.ToolTip>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Icons legend (modalities) -->
+        <Border Grid.Row="3" Margin="0,8,0,0" Padding="8,6" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left" >
+                <TextBlock Text="Modalities:" FontWeight="SemiBold" Foreground="#555" Margin="0,0,10,0" />
+                <TextBlock Text="📝 text" Margin="0,0,14,0" />
+                <TextBlock Text="🖼 image" Margin="0,0,14,0" />
+                <TextBlock Text="🔊 audio" Margin="0,0,14,0" />
+                <TextBlock Text="🎬 video" Margin="0,0,14,0" />
+                <TextBlock Text="📄 file" Margin="0,0,14,0" />
+                <TextBlock Text="💻 code" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button x:Name="SelectButton" Content="Select" IsDefault="True"
+                    Padding="14,5" Margin="0,0,8,0" Click="OnSelect" />
+            <Button Content="Cancel" IsCancel="True" Padding="14,5" />
+        </StackPanel>
+    </Grid>
+</Window>

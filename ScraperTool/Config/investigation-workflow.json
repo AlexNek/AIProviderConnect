@@ -1,0 +1,65 @@
+[
+  {
+    "stepNumber": 1,
+    "title": "Understand the purpose of the field",
+    "description": "What semantic purpose does this field serve? What makes a value correct?",
+    "templateKey": "UnderstandField_Step",
+    "allowedTools": "",
+    "isRequired": true,
+    "isEnabled": true
+  },
+  {
+    "stepNumber": 2,
+    "title": "Evaluate the current value",
+    "description": "Does the current value satisfy the purpose? Stop here if yes.",
+    "templateKey": "EvaluateCurrentValue_Step",
+    "allowedTools": "verify_url",
+    "isRequired": true,
+    "isEnabled": true
+  },
+  {
+    "stepNumber": 3,
+    "title": "If current value satisfies field, stop",
+    "description": "Do not search for alternatives if the current value is already valid.",
+    "templateKey": "EvaluateCurrentValue_Step",
+    "allowedTools": "verify_url",
+    "isRequired": true,
+    "isEnabled": true
+  },
+  {
+    "stepNumber": 4,
+    "title": "If uncertain, use research strategies",
+    "description": "Use available techniques to gather evidence when current value is questionable.",
+    "templateKey": "ResearchAlternatives_Step",
+    "allowedTools": "search_web,fetch_url,verify_url",
+    "isRequired": false,
+    "isEnabled": true
+  },
+  {
+    "stepNumber": 5,
+    "title": "Compare discovered candidates",
+    "description": "Weigh evidence for each candidate URL against the field purpose.",
+    "templateKey": "CompareCandidates_Step",
+    "allowedTools": "",
+    "isRequired": false,
+    "isEnabled": true
+  },
+  {
+    "stepNumber": 6,
+    "title": "Choose the best candidate",
+    "description": "Select the URL that best satisfies the field purpose.",
+    "templateKey": "DecideWinner_Step",
+    "allowedTools": "",
+    "isRequired": false,
+    "isEnabled": true
+  },
+  {
+    "stepNumber": 7,
+    "title": "Explain your reasoning",
+    "description": "Provide clear justification for your choice.",
+    "templateKey": "ExplainReasoning_Step",
+    "allowedTools": "",
+    "isRequired": true,
+    "isEnabled": true
+  }
+]

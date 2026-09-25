@@ -1,0 +1,127 @@
+[
+  {
+    "fieldName": "website",
+    "purpose": "The provider's primary public homepage. Users should be able to learn about the service here.",
+    "expectedCharacteristics": "- public\n- official\n- represents the organization\n- suitable for first-time visitors",
+    "notExpected": "- login pages\n- developer portals\n- documentation\n- API endpoints\n- product-specific applications",
+    "searchQueryTemplate": "{providerName} official website",
+    "relevanceTerms": [],
+    "siblingFields": [
+      "loginUrl"
+    ],
+    "siblingPageMayBeAnswer": true,
+    "displayOrder": 0
+  },
+  {
+    "fieldName": "loginUrl",
+    "purpose": "Primary authentication entry point. Where users log in or sign up to access the service.",
+    "expectedCharacteristics": "- official login page\n- authentication required is normal",
+    "notExpected": "- pages that don't involve authentication\n- redirect loops that never reach auth",
+    "searchQueryTemplate": "{providerName} login sign up",
+    "relevanceTerms": [
+      "signin",
+      "sign-in",
+      "sign in",
+      "auth"
+    ],
+    "siblingFields": [
+      "apiPricingUrl",
+      "subscriptionPricingUrl",
+      "documentationUrl"
+    ],
+    "siblingPageMayBeAnswer": false,
+    "displayOrder": 1
+  },
+  {
+    "fieldName": "apiPricingUrl",
+    "purpose": "The page showing API pricing information, costs per token/model, or rate plans.",
+    "expectedCharacteristics": "- contains pricing information\n- shows costs per token/model\n- may require auth if behind paywall",
+    "notExpected": "- the root domain (use specific pricing page)\n- subscription/plan pages (those go in subscriptionPricingUrl)",
+    "searchQueryTemplate": "{providerName} API pricing",
+    "relevanceTerms": [
+      "price",
+      "billing",
+      "plans",
+      "costs"
+    ],
+    "siblingFields": [
+      "documentationUrl",
+      "subscriptionPricingUrl"
+    ],
+    "siblingPageMayBeAnswer": true,
+    "displayOrder": 2
+  },
+  {
+    "fieldName": "subscriptionPricingUrl",
+    "purpose": "The page showing subscription plans, tiers, or monthly/annual pricing for the service.",
+    "expectedCharacteristics": "- contains subscription tiers or plan comparisons\n- shows monthly/annual pricing\n- may include free tier details\n- the value '-' is correct when the provider has no subscription plans",
+    "notExpected": "- per-token/per-request API pricing (those go in apiPricingUrl)\n- the root domain",
+    "searchQueryTemplate": "{providerName} subscription pricing plans",
+    "notApplicableValue": "-",
+    "relevanceTerms": [
+      "plans",
+      "billing",
+      "subscribe",
+      "price"
+    ],
+    "siblingFields": [
+      "apiPricingUrl",
+      "documentationUrl"
+    ],
+    "siblingPageMayBeAnswer": true,
+    "displayOrder": 3
+  },
+  {
+    "fieldName": "documentationUrl",
+    "purpose": "The provider's API documentation. Contains technical reference for developers.",
+    "expectedCharacteristics": "- technical API reference\n- shows endpoint documentation\n- may have versioning (e.g. /docs/v2)",
+    "notExpected": "- the root domain (use specific docs page)\n- generic help centers over technical docs",
+    "searchQueryTemplate": "{providerName} API documentation",
+    "relevanceTerms": [],
+    "siblingFields": [
+      "apiPricingUrl",
+      "subscriptionPricingUrl"
+    ],
+    "siblingPageMayBeAnswer": true,
+    "displayOrder": 3
+  },
+  {
+    "fieldName": "baseUrl",
+    "purpose": "The base URL for API calls. The root endpoint that accepts API requests.",
+    "expectedCharacteristics": "- returns JSON on API calls\n- may return 401/403 (auth required)\n- may return 404 on bare URL but work with a path (e.g. /models)",
+    "notExpected": "- web pages that don't return JSON\n- endpoints that never respond",
+    "searchQueryTemplate": "{providerName} API endpoint URL",
+    "relevanceTerms": [],
+    "siblingFields": [
+      "documentationUrl",
+      "apiPricingUrl"
+    ],
+    "siblingPageMayBeAnswer": true,
+    "displayOrder": 4
+  },
+  {
+    "fieldName": "minModelCount",
+    "purpose": "The smallest number of models the provider currently exposes to its customers.",
+    "expectedCharacteristics": "- a plain number\n- counted from the provider's own model list, not estimated from prose",
+    "notExpected": "- a count of the models one tool happens to use\n- a number rounded up from a marketing claim",
+    "searchQueryTemplate": "{providerName} models",
+    "relevanceTerms": [],
+    "siblingFields": [
+      "documentationUrl",
+      "apiPricingUrl"
+    ],
+    "siblingPageMayBeAnswer": true,
+    "displayOrder": 5
+  },
+  {
+    "fieldName": "modelDescription",
+    "purpose": "A short description of the models the provider serves and how they are grouped.",
+    "expectedCharacteristics": "- names the model families actually offered\n- matches the provider's own model list",
+    "notExpected": "- marketing copy with no model names\n- a list of models the provider does not serve",
+    "searchQueryTemplate": "{providerName} available models list",
+    "relevanceTerms": [],
+    "siblingFields": [],
+    "siblingPageMayBeAnswer": true,
+    "displayOrder": 6
+  }
+]

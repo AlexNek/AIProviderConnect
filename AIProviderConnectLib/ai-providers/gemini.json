@@ -1,0 +1,27 @@
+{
+  "id": "gemini",
+  "displayName": "Google Gemini",
+  "protocol": "GeminiCompatible",
+  "website": "https://ai.google.dev/",
+  "loginUrl": "https://accounts.google.com/ServiceLogin?continue=https://aistudio.google.com",
+  "apiPricingUrl": "https://ai.google.dev/gemini-api/docs/pricing",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://ai.google.dev/api",
+  "baseUrl": "https://generativelanguage.googleapis.com/v1beta/",
+  "protocolConfiguration": {
+    "apiKeyHeaderName": "x-goog-api-key",
+    "generationEndpoint": "models/{model}:generateContent",
+    "streamEndpoint": "models/{model}:streamGenerateContent"
+  },
+  "category": "DirectProvider",
+  "modelDescription": "Gemini models for text, multimodal generation, reasoning, live audio, image generation, embeddings, and specialized tasks",
+  "payAsYouGo": true,
+  "payAsYouGoDescription": "Paid Gemini API usage is billed according to model and usage tier.",
+  "hasModelDiscoveryApi": true,
+  "modelDiscoveryNotes": "",
+  "minimumCommitment": "None",
+  "hasFreeTier": true,
+  "pricingNotes": "Free tier available for selected models with limited access and usage; paid tiers provide higher limits and access to additional models and features.",
+  "supportsFineTuning": false,
+  "minModelCount": 1
+}

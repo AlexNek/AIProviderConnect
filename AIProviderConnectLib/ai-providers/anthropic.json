@@ -1,0 +1,25 @@
+{
+  "id": "anthropic",
+  "displayName": "Anthropic Claude",
+  "protocol": "AnthropicCompatible",
+  "website": "https://www.anthropic.com/",
+  "loginUrl": "https://platform.claude.com/login",
+  "apiPricingUrl": "https://claude.com/pricing#api",
+  "subscriptionPricingUrl": "https://claude.com/pricing",
+  "documentationUrl": "https://platform.claude.com/docs/en/api/overview",
+  "baseUrl": "https://api.anthropic.com/v1/",
+  "messagesEndpoint": "messages",
+  "modelsEndpoint": "models",
+  "protocolConfiguration": {
+    "anthropicVersion": "2023-06-01",
+    "apiKeyHeaderName": "x-api-key"
+  },
+  "category": "DirectProvider",
+  "modelDescription": "Multiple Claude models (Haiku, Sonnet, Opus)",
+  "payAsYouGo": true,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": true,
+  "modelDiscoveryNotes": "",
+  "minimumCommitment": "None",
+  "hasFreeTier": false
+}

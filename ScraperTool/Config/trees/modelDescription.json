@@ -1,0 +1,105 @@
+{
+  "treeId": "modelDescription",
+  "name": "Model Description Verification",
+  "description": "Verifies whether the stored model description is still accurate by querying the models API or fetching the models page.",
+  "version": 1,
+  "systemPrompt": "You are a classification assistant. Analyze the provided model list and compare it against the current description. Classify whether the description is still accurate, stale, or wrong. Return JSON with 'answer', 'observation' (one short sentence), and optional 'confidence'.",
+  "task": "Verify the modelDescription for {providerName} (current: {currentValue}).",
+  "budget": {
+    "maxNodeVisits": 15,
+    "maxLlmCalls": 4,
+    "maxElapsedTime": "00:01:30",
+    "maxContextTokens": 4000
+  },
+  "startNodeId": "init-state",
+  "nodes": {
+    "init-state": {
+      "type": "action",
+      "name": "Initialize State",
+      "description": "Initializes the verification state from the current research data.",
+      "actionKey": "initVerificationState",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "has-model-api" },
+        { "condition": "transientFailure", "nextNodeId": "init-state" },
+        { "condition": "permanentFailure", "nextNodeId": "has-model-api" }
+      ]
+    },
+    "has-model-api": {
+      "type": "condition",
+      "name": "Has Model API",
+      "description": "Checks whether a model discovery API endpoint is available.",
+      "predicateKey": "hasModelDiscoveryApi",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "query-models" },
+        { "condition": "false", "nextNodeId": "has-models-page" }
+      ]
+    },
+    "query-models": {
+      "type": "action",
+      "name": "Query Models",
+      "description": "Queries the models API endpoint to retrieve the current model list.",
+      "actionKey": "queryModelsEndpoint",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "classify-description" },
+        { "condition": "transientFailure", "nextNodeId": "query-models" },
+        { "condition": "permanentFailure", "nextNodeId": "skip" }
+      ]
+    },
+    "classify-description": {
+      "type": "classify",
+      "name": "Classify Description",
+      "description": "Compares the current description against the actual model list using the LLM.",
+      "task": "Compare the current model description for {{providerName}} (current: {{currentValue}}) against the actual model list. Is the description still accurate, stale (missing new model families), or wrong (references models no longer offered)? Base your answer on what the provided model list actually contains. Links to other pages or model names may provide signals but do not override the actual list content; prefer direct evidence from the model list itself.",
+      "answers": [
+        "accurate",
+        "stale",
+        "wrong"
+      ],
+      "transitions": [
+        { "condition": "accurate", "nextNodeId": "keep" },
+        { "condition": "stale", "nextNodeId": "needs-update" },
+        { "condition": "wrong", "nextNodeId": "needs-update" },
+        { "condition": "unknown", "nextNodeId": "skip" }
+      ]
+    },
+    "has-models-page": {
+      "type": "condition",
+      "name": "Has Models Page",
+      "description": "Checks whether a models page URL is available for fetching.",
+      "predicateKey": "hasModelsPageUrl",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "fetch-models-page" },
+        { "condition": "false", "nextNodeId": "skip" }
+      ]
+    },
+    "fetch-models-page": {
+      "type": "action",
+      "name": "Fetch Models Page",
+      "description": "Fetches the models page content for analysis.",
+      "actionKey": "fetchModelsPage",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "skip" },
+        { "condition": "transientFailure", "nextNodeId": "fetch-models-page" },
+        { "condition": "permanentFailure", "nextNodeId": "skip" }
+      ]
+    },
+    "keep": {
+      "type": "terminal",
+      "name": "Keep",
+      "description": "Terminal node indicating the current value is still accurate.",
+      "verdict": "keep"
+    },
+    "needs-update": {
+      "type": "terminal",
+      "name": "Needs Update",
+      "description": "Terminal node indicating the current value needs to be updated.",
+      "verdict": "update"
+    },
+    "skip": {
+      "type": "terminal",
+      "name": "Skip",
+      "description": "Terminal node indicating verification was skipped due to insufficient data.",
+      "verdict": "skip"
+    }
+  }
+}

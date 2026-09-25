@@ -1,0 +1,166 @@
+{
+  "treeId": "baseUrl",
+  "name": "API Base URL Verification",
+  "description": "Verifies the API base URL by checking reachability and falling back to web search if needed.",
+  "version": 4,
+  "systemPrompt": "You are a classification assistant. Analyze the provided page content and classify it into exactly one of the allowed answers. Return JSON with 'answer', 'observation' (one short sentence), and optional 'confidence'.",
+  "task": "Verify the API base URL for {providerName}.",
+  "budget": {
+    "maxNodeVisits": 30,
+    "maxLlmCalls": 6,
+    "maxElapsedTime": "00:02:30",
+    "maxContextTokens": 4000
+  },
+  "startNodeId": "record-current-fact",
+  "nodes": {
+    "record-current-fact": {
+      "type": "action",
+      "name": "Record Current Fact",
+      "description": "Records the current field value as a verified fact in the research state.",
+      "actionKey": "recordCurrentFact",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "has-current-value" },
+        { "condition": "transientFailure", "nextNodeId": "record-current-fact" },
+        { "condition": "permanentFailure", "nextNodeId": "has-current-value" }
+      ]
+    },
+    "has-current-value": {
+      "type": "condition",
+      "name": "Has Current Value",
+      "description": "Checks whether a current field value is already known.",
+      "predicateKey": "hasKnownCurrentValue",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "verify-reachable" },
+        { "condition": "false", "nextNodeId": "scan-sibling-content" }
+      ]
+    },
+    "verify-reachable": {
+      "type": "action",
+      "name": "Verify Reachable",
+      "description": "Hands the candidate to the models probe: for this field a page fetch cannot say whether an API base works, so no candidate is rejected here.",
+      "actionKey": "verifyReachable",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "is-reachable" },
+        { "condition": "transientFailure", "nextNodeId": "verify-reachable" },
+        { "condition": "permanentFailure", "nextNodeId": "is-auth-gated" }
+      ]
+    },
+    "is-reachable": {
+      "type": "condition",
+      "name": "Is Reachable",
+      "description": "Checks whether the last reachability verification succeeded.",
+      "predicateKey": "lastVerifySucceeded",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "probe-models-endpoint" },
+        { "condition": "false", "nextNodeId": "scan-sibling-content" }
+      ]
+    },
+    "probe-models-endpoint": {
+      "type": "action",
+      "name": "Probe Models Endpoint",
+      "description": "Probes {baseUrl}/v1/models to verify the base URL is an actual API endpoint (returns JSON, not HTML).",
+      "actionKey": "queryModelsEndpoint",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "win" },
+        { "condition": "transientFailure", "nextNodeId": "probe-models-endpoint" },
+        { "condition": "permanentFailure", "nextNodeId": "is-auth-gated" }
+      ]
+    },
+    "is-auth-gated": {
+      "type": "condition",
+      "name": "Is Auth Gated",
+      "description": "Checks whether the URL returned HTTP 401 (authentication required).",
+      "predicateKey": "httpStatusIs401",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "win" },
+        { "condition": "false", "nextNodeId": "has-more-candidates" }
+      ]
+    },
+    "has-more-candidates": {
+      "type": "condition",
+      "name": "Has More Candidates",
+      "description": "Checks whether there are untried candidates remaining (from sibling content or candidate content extraction).",
+      "predicateKey": "hasUntriedCandidates",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "false", "nextNodeId": "scan-sibling-content" }
+      ]
+    },
+    "scan-sibling-content": {
+      "type": "action",
+      "name": "Scan Sibling Content",
+      "description": "Fetches known-good sibling pages (apiPricingUrl, documentationUrl) and extracts URLs from their content — API base URLs are typically in code examples, not hyperlinks.",
+      "actionKey": "scanSiblingContent",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "has-sibling-candidates" },
+        { "condition": "transientFailure", "nextNodeId": "scan-sibling-content" },
+        { "condition": "permanentFailure", "nextNodeId": "lose" }
+      ]
+    },
+    "has-sibling-candidates": {
+      "type": "condition",
+      "name": "Has Sibling Candidates",
+      "description": "Checks whether URL extraction from sibling pages left any candidate untried.",
+      "predicateKey": "hasUntriedCandidates",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "false", "nextNodeId": "web-search" }
+      ]
+    },
+    "web-search": {
+      "type": "action",
+      "name": "Web Search",
+      "description": "Searches the web for relevant URLs as a fallback strategy.",
+      "actionKey": "webSearch",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "has-search-results" },
+        { "condition": "transientFailure", "nextNodeId": "web-search" },
+        { "condition": "permanentFailure", "nextNodeId": "lose" }
+      ]
+    },
+    "has-search-results": {
+      "type": "condition",
+      "name": "Has Search Results",
+      "description": "Checks whether the web search produced a candidate that has not been tried yet.",
+      "predicateKey": "hasUntriedCandidates",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "false", "nextNodeId": "lose" }
+      ]
+    },
+    "fetch-next-candidate": {
+      "type": "action",
+      "name": "Fetch Next Candidate",
+      "description": "Fetches the next candidate URL from the queue for evaluation.",
+      "actionKey": "fetchNextCandidate",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "scan-candidate-content" },
+        { "condition": "transientFailure", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "permanentFailure", "nextNodeId": "scan-sibling-content" }
+      ]
+    },
+    "scan-candidate-content": {
+      "type": "action",
+      "name": "Scan Candidate Content",
+      "description": "Scans the fetched candidate page content for additional URLs (e.g. API base URLs in code examples on documentation pages). Runs once per candidate cycle.",
+      "actionKey": "scanCandidateContent",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "verify-reachable" },
+        { "condition": "transientFailure", "nextNodeId": "verify-reachable" },
+        { "condition": "permanentFailure", "nextNodeId": "verify-reachable" }
+      ]
+    },
+    "win": {
+      "type": "terminal",
+      "name": "Success",
+      "description": "Terminal node indicating a successful result.",
+      "verdict": "winner"
+    },
+    "lose": {
+      "type": "terminal",
+      "name": "Failure",
+      "description": "Terminal node indicating no result was found.",
+      "verdict": "null"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "vercel-ai-gateway",
+  "displayName": "Vercel AI Gateway",
+  "protocol": "OpenAICompatible",
+  "website": "https://vercel.com/ai-gateway",
+  "loginUrl": "https://vercel.com/login",
+  "apiPricingUrl": "https://vercel.com/docs/ai-gateway/pricing",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://vercel.com/docs/ai-gateway/sdks-and-apis/openai-chat-completions",
+  "baseUrl": "https://ai-gateway.vercel.sh/v1",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "AIGateway",
+  "modelDescription": "Multiple providers through a unified endpoint",
+  "payAsYouGo": true,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": true,
+  "modelDiscoveryNotes": "",
+  "minimumCommitment": "None",
+  "hasFreeTier": false,
+  "pricingNotes": "Routes requests to supported providers",
+  "regionalEndpoints": {
+    "global": "https://ai-gateway.vercel.sh/v1"
+  },
+  "minModelCount": 372
+}

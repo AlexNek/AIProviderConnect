@@ -1,0 +1,40 @@
+next-version: 1.0.0
+mode: ContinuousDeployment
+assembly-versioning-scheme: MajorMinorPatch
+assembly-file-versioning-scheme: MajorMinorPatch
+tag-prefix: '[vV]?'
+major-version-bump-message: '\+semver:\s?(breaking|major)'
+minor-version-bump-message: '\+semver:\s?(feature|minor)'
+patch-version-bump-message: '\+semver:\s?(fix|patch)'
+commit-message-incrementing: Disabled
+branches:
+  master:
+    regex: ^master$
+    label: ''
+    increment: None
+  main:
+    regex: ^main$
+    label: ''
+    increment: None
+  develop:
+    regex: ^dev(elop)?(ment)?$
+    label: 'alpha'
+  feature:
+    regex: ^features?[/-]
+    label: 'beta'
+  release:
+    regex: ^releases?[/-]
+    label: 'rc'
+  unknown:
+    regex: ^(?!master$|main$|dev(elop)?(ment)?$|features?[/-]|releases?[/-]|pull[/-]).*
+    source-branches: ['master', 'main']
+    label: 'beta'
+    increment: None
+    is-release-branch: false
+  pull-request:
+    regex: ^(pull|pull\-requests)[/-]
+    source-branches: ['master', 'main']
+    label: 'pull'
+    increment: None
+ignore:
+  sha: []

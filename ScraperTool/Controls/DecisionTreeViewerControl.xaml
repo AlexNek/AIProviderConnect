@@ -1,0 +1,88 @@
+<UserControl x:Class="ScraperTool.Controls.DecisionTreeViewerControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:ScraperTool.ViewModels"
+             xmlns:c="clr-namespace:ScraperTool.Converters"
+             xmlns:dtv="clr-namespace:GraphVisualization.Controls;assembly=GraphVisualization"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:DecisionTreeViewerViewModel}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Tree selector -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBlock Text="Decision Tree:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,8,0" />
+            <ComboBox ItemsSource="{Binding TreeEntries}"
+                      DisplayMemberPath="DisplayName"
+                      SelectedValuePath="FileName"
+                      SelectedValue="{Binding SelectedTreeFileName}"
+                      Width="280" VerticalAlignment="Center" />
+            <Button Content="Refresh" Command="{Binding RefreshTreeListCommand}"
+                    Margin="8,0,0,0" Padding="12,4" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <!-- Tree summary -->
+        <Border Grid.Row="1" Background="#F5F9FF" BorderBrush="#B8D4F0" BorderThickness="1"
+                CornerRadius="4" Padding="8,6" Margin="0,0,0,8">
+            <TextBlock Text="{Binding TreeSummary}" Foreground="#333" FontSize="12"
+                       TextWrapping="Wrap" />
+        </Border>
+
+        <!-- Error message -->
+        <TextBlock Grid.Row="2" Text="{Binding LoadErrorMessage}" Foreground="#DC3545"
+                   FontSize="12" Margin="0,0,0,8"
+                   Visibility="{Binding LoadErrorMessage, Converter={x:Static c:NonEmptyVisibility.Instance}}" />
+
+        <!-- Rendered graph as the primary view; raw sources behind tabs -->
+        <TabControl Grid.Row="3">
+            <TabItem Header="Graph">
+                <dtv:GraphViewerControl Graph="{Binding GraphModel}">
+                    <dtv:GraphViewerControl.LegendContent>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Legend:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,8,0" />
+                            <Border Background="#E8F4FD" BorderBrush="#0078D4" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="0,0,6,0">
+                                <TextBlock Text="action" FontSize="11" />
+                            </Border>
+                            <Border Background="#F8D7DA" BorderBrush="#DC3545" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="0,0,6,0">
+                                <TextBlock Text="condition" FontSize="11" />
+                            </Border>
+                            <Border Background="#FFF3CD" BorderBrush="#B8860B" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="0,0,6,0">
+                                <TextBlock Text="question" FontSize="11" />
+                            </Border>
+                            <Border Background="#D4EDDA" BorderBrush="#28A745" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="0,0,6,0">
+                                <TextBlock Text="terminal" FontSize="11" />
+                            </Border>
+                        </StackPanel>
+                    </dtv:GraphViewerControl.LegendContent>
+                </dtv:GraphViewerControl>
+            </TabItem>
+            <TabItem Header="JSON Source">
+                <TextBox Text="{Binding JsonSource, Mode=OneWay}"
+                         IsReadOnly="True"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto"
+                         FontFamily="Consolas" FontSize="11"
+                         TextWrapping="NoWrap"
+                         AcceptsReturn="True"
+                         Background="#FAFAFA" />
+            </TabItem>
+            <TabItem Header="DOT Export">
+                <TextBox Text="{Binding DotOutput, Mode=OneWay}"
+                         IsReadOnly="True"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto"
+                         FontFamily="Consolas" FontSize="11"
+                         TextWrapping="NoWrap"
+                         AcceptsReturn="True"
+                         Background="#FAFAFA" />
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

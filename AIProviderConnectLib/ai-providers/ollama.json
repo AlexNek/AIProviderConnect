@@ -1,0 +1,22 @@
+{
+  "id": "ollama",
+  "displayName": "Ollama",
+  "protocol": "OpenAICompatible",
+  "website": "https://ollama.com/",
+  "loginUrl": "-",
+  "apiPricingUrl": "-",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://docs.ollama.com",
+  "baseUrl": "http://localhost:11434/v1/",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "SelfHosted",
+  "modelDescription": "Local model runtime",
+  "payAsYouGo": false,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": false,
+  "modelDiscoveryNotes": "Local only",
+  "minimumCommitment": "Free \u2014 open source",
+  "hasFreeTier": true,
+  "isDynamicModelCatalog": true
+}

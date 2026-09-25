@@ -1,0 +1,107 @@
+[
+  {
+    "ruleKind": "RootLinkScanner",
+    "displayName": "Root Link Scanner",
+    "description": "Fetch the provider's root page and extract all <a href=\"...\"> links. Look for URLs whose text or path suggests they match the target field (e.g., 'pricing', 'login', 'docs', 'api'). This is useful when the target URL is linked from the homepage.",
+    "isEnabled": true,
+    "priority": 0
+  },
+  {
+    "ruleKind": "SearchWeb",
+    "displayName": "Web Search",
+    "description": "Search the web for the provider's name combined with the field keyword. For example, if looking for a pricing page, search for '<provider name> pricing' or '<provider name> API pricing'. Use this when the URL isn't obvious from the provider's own site.",
+    "isEnabled": true,
+    "priority": 1
+  },
+  {
+    "ruleKind": "RobotsTxtScanner",
+    "displayName": "Robots.txt Scanner",
+    "description": "Fetch /robots.txt from the provider's domain. The Allow and Disallow directives often list paths that are relevant to the target field. Construct full URLs by combining the domain with discovered paths.",
+    "isEnabled": true,
+    "priority": 2
+  },
+  {
+    "ruleKind": "SitemapParser",
+    "displayName": "Sitemap Parser",
+    "description": "Fetch /sitemap.xml (or a sitemap index) to get a comprehensive list of all pages on the provider's site. Parse <loc> elements and match URLs against the target field keywords (pricing, login, docs, api).",
+    "isEnabled": true,
+    "priority": 3
+  },
+  {
+    "ruleKind": "WaybackFallback",
+    "displayName": "Wayback Machine Fallback",
+    "description": "If the current URL is broken and no working alternative is found, query the Wayback Machine CDX API for archived snapshots. This is a fallback for sites that have changed or gone down.",
+    "isEnabled": false,
+    "priority": 4
+  },
+  {
+    "ruleKind": "RegionalEndpointFallback",
+    "displayName": "Regional Endpoint Fallback",
+    "description": "For API baseUrl fields: Many cloud providers (Alibaba, Tencent, etc.) have region-specific endpoints. If a URL returns 404, try regional variants.",
+    "isEnabled": true,
+    "priority": 1
+  },
+  {
+    "ruleKind": "FetchProviderDocs",
+    "displayName": "Fetch Provider Documentation",
+    "description": "Find and read the provider's official API documentation. Strategy: (1) use the provider's own documentationUrl if available; (2) search the web for '<provider name> API documentation' as fallback; (3) scan the provider's website for doc/API pages.",
+    "isEnabled": true,
+    "priority": 0
+  },
+  {
+    "ruleKind": "BrokenUrlResearch",
+    "displayName": "Broken URL Research",
+    "description": "When the target URL returns HTTP 404 or is unreachable, research alternatives. Strategy: (1) test common sub-paths like {baseUrl}/models; (2) search the web for '<provider name> API base URL'; (3) fetch the provider's website for API endpoint examples; (4) try common API paths.",
+    "isEnabled": true,
+    "priority": 2
+  },
+  {
+    "ruleKind": "BaseUrlValidation",
+    "displayName": "Base URL Validation",
+    "description": "Before accepting a baseUrl as correct, validate it behaves like a real API endpoint. Strategy: (1) check that the URL returns a valid HTTP response; (2) test {baseUrl}/models or other documented paths; (3) verify the response body is valid JSON; (4) HTTP 401 with JSON body counts as valid.",
+    "isEnabled": true,
+    "priority": 1
+  },
+  {
+    "ruleKind": "ModelDiscoveryResearch",
+    "displayName": "Model Discovery Research",
+    "description": "Research the provider's documentation to determine if they expose an endpoint to list available models. Look for endpoints like GET /v1/models, GET /api/tags, 'list models', or similar model listing endpoints.",
+    "isEnabled": true,
+    "priority": 0
+  },
+  {
+    "ruleKind": "FindWebsiteUrl",
+    "displayName": "Find Website URL",
+    "description": "Research the correct public website URL for this provider — the website MUST be publicly accessible (HTTP 200-399). Prefer root domains over subdomains. NEVER suggest a URL whose domain has no relationship to the provider name.",
+    "isEnabled": true,
+    "priority": 0
+  },
+  {
+    "ruleKind": "FindLoginUrl",
+    "displayName": "Find Login URL",
+    "description": "Research the correct login/sign-in page URL for this provider. Strategy: (1) fetch_url the provider's website and scan HTML for login-related <a> tags; (2) look for href containing: 'login', 'signin', 'sign-in', 'auth'; (3) search_web for '<provider name> login' as fallback.",
+    "isEnabled": true,
+    "priority": 0
+  },
+  {
+    "ruleKind": "FindDocumentationUrl",
+    "displayName": "Find Documentation URL",
+    "description": "Research the correct API documentation URL for this provider. Strategy: (1) search_web for '<provider name> API documentation'; (2) documentation is typically on docs.provider.com, developer.provider.com, or provider.com/docs; (3) fetch_url found pages and verify they contain technical API content.",
+    "isEnabled": true,
+    "priority": 0
+  },
+  {
+    "ruleKind": "AuthGatedDocsVerification",
+    "displayName": "Auth-Gated API Documentation Verification",
+    "description": "Decision rule for baseUrl fields behind API-key gateways that answer 401/403 with non-JSON bodies on every path (e.g. DeepSeek), so Base URL Validation's JSON check can never pass anonymously. Applies only after that JSON check fails. Decision steps: (1) extract endpoint paths documented on the same host from the pre-fetched official documentation; (2) ACCEPT if any documented endpoint returns a JSON body (JSON error bodies count); (3) otherwise ACCEPT only if documented endpoints answer with 401/403 auth challenges AND the documentation explicitly names this host as the API base URL (base_url/baseURL assignment in tables or SDK samples); (4) REJECT in all other cases — a bare 401 alone never passes.",
+    "isEnabled": true,
+    "priority": 2
+  },
+  {
+    "ruleKind": "DecisionTreeResearch",
+    "displayName": "Decision Tree Research",
+    "description": "Use declarative JSON decision trees (loaded from Config/trees/) instead of the step-by-step micro-prompt workflow for URL research. When enabled, the DecisionTreeResearchService replaces AutonomousUrlResearchAgent as the IUrlResearchService implementation.",
+    "isEnabled": false,
+    "priority": 0
+  }
+]

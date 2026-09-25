@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  TEST_PATH: AIProviderConnectLib.Tests/AIProviderConnectLib.Tests.csproj
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # Scoped to the library + tests: ScraperTool is a Windows-only WPF app
+      # and the solution also lists sibling-repo projects.
+      - name: Restore
+        run: dotnet restore ${{ env.TEST_PATH }}
+
+      - name: Build
+        run: dotnet build ${{ env.TEST_PATH }} --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test ${{ env.TEST_PATH }} --configuration Release --no-build --verbosity normal --filter "Category!=Integration"

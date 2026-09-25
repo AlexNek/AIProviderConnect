@@ -1,0 +1,23 @@
+{
+  "id": "deepseek",
+  "displayName": "DeepSeek",
+  "protocol": "OpenAICompatible",
+  "website": "https://deepseek.com/",
+  "loginUrl": "https://platform.deepseek.com/",
+  "apiPricingUrl": "https://api-docs.deepseek.com/quick_start/pricing/",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://api-docs.deepseek.com/",
+  "baseUrl": "https://api.deepseek.com/v1",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "DirectProvider",
+  "modelDescription": "Multiple DeepSeek models. Most information after login",
+  "payAsYouGo": true,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": true,
+  "modelDiscoveryNotes": "",
+  "minimumCommitment": "None",
+  "hasFreeTier": false,
+  "supportsFineTuning": false,
+  "minModelCount": 6
+}

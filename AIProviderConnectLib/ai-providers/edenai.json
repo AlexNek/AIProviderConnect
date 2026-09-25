@@ -1,0 +1,23 @@
+{
+  "id": "edenai",
+  "displayName": "Eden AI",
+  "protocol": "OpenAICompatible",
+  "website": "https://www.edenai.co/",
+  "loginUrl": "https://app.edenai.run/login",
+  "apiPricingUrl": "https://www.edenai.co/pricing",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://www.edenai.co/docs/v3/llms/chat-completions",
+  "baseUrl": "https://api.edenai.run/v3",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "MultiModelAggregator",
+  "modelDescription": "500\u002B models (LLMs, speech, vision, OCR, translation)",
+  "payAsYouGo": true,
+  "payAsYouGoDescription": "Self-serve plan, no commitments",
+  "hasModelDiscoveryApi": false,
+  "modelDiscoveryNotes": "Catalog browsable via UI; no dedicated REST discovery endpoint",
+  "minimumCommitment": "None",
+  "hasFreeTier": false,
+  "pricingNotes": "5.5% transparent platform fee; no markup on provider pricing",
+  "minModelCount": 500
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "priority": 0,
+    "guideline": "Prefer keeping the existing value if it already satisfies the field.",
+    "isEnabled": true,
+    "fieldName": null
+  },
+  {
+    "priority": 1,
+    "guideline": "Prefer official domains over unofficial mirrors.",
+    "isEnabled": true,
+    "fieldName": null
+  },
+  {
+    "priority": 2,
+    "guideline": "Prefer root domains over product subdomains (except for specific pages like pricing/docs).",
+    "isEnabled": true,
+    "fieldName": null
+  },
+  {
+    "priority": 3,
+    "guideline": "A developer portal is NOT the organization's public website.",
+    "isEnabled": true,
+    "fieldName": null
+  },
+  {
+    "priority": 4,
+    "guideline": "HTTP 401 or 403 alone does NOT prove a URL is invalid.",
+    "isEnabled": true,
+    "fieldName": null
+  },
+  {
+    "priority": 5,
+    "guideline": "Authentication requirements are expected for login pages.",
+    "isEnabled": true,
+    "fieldName": null
+  },
+  {
+    "priority": 6,
+    "guideline": "Never recommend unofficial mirrors or unreliable sources.",
+    "isEnabled": true,
+    "fieldName": null
+  },
+  {
+    "priority": 7,
+    "guideline": "Prefer evidence from the provider itself over search snippets.",
+    "isEnabled": true,
+    "fieldName": null
+  }
+]

@@ -1,0 +1,47 @@
+{
+  "subscriptionKeywords": [
+    "subscription",
+    "monthly plan",
+    "pro plan",
+    "enterprise plan",
+    "tier",
+    "billed monthly",
+    "per month",
+    "monthly subscription",
+    "plan pricing",
+    "subscription plan",
+    "basic plan",
+    "premium plan",
+    "team plan",
+    "business plan"
+  ],
+  "payAsYouGoKeywords": [
+    "pay as you go",
+    "pay per token",
+    "per request",
+    "per token",
+    "token-based",
+    "pay per use",
+    "pay-as-you-go",
+    "per-token",
+    "pay per",
+    "token-based pricing",
+    "per 1m tokens",
+    "1m tokens",
+    "million tokens",
+    "1m input tokens",
+    "1m output tokens",
+    "usage-based"
+  ],
+  "pricingUrlKeywords": [
+    "pricing",
+    "/price",
+    "billing"
+  ],
+  "apiBaseUrlMarkers": [
+    "base_url",
+    "baseURL",
+    "baseUrl",
+    "BASE_URL"
+  ]
+}

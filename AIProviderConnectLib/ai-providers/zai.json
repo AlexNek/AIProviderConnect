@@ -1,0 +1,23 @@
+{
+  "id": "zai",
+  "displayName": "Z.ai",
+  "protocol": "OpenAICompatible",
+  "website": "https://z.ai/",
+  "loginUrl": "https://z.ai/model-api",
+  "apiPricingUrl": "https://docs.z.ai/guides/overview/pricing",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://docs.z.ai/guides/overview/quick-start",
+  "baseUrl": "https://api.z.ai/api/paas/v4/",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "DirectProvider",
+  "modelDescription": "Multiple Z.ai models",
+  "payAsYouGo": true,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": true,
+  "modelDiscoveryNotes": "",
+  "minimumCommitment": "None",
+  "hasFreeTier": false,
+  "supportsFineTuning": false,
+  "minModelCount": 17
+}

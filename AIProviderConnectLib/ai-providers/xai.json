@@ -1,0 +1,23 @@
+{
+  "id": "xai",
+  "displayName": "xAI (Grok)",
+  "protocol": "OpenAICompatible",
+  "website": "https://x.ai/",
+  "loginUrl": "https://console.x.ai/login",
+  "apiPricingUrl": "https://docs.x.ai/developers/pricing",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://docs.x.ai/",
+  "baseUrl": "https://api.x.ai/v1/",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "DirectProvider",
+  "modelDescription": "Multiple Grok models.Text, image,voice, code\r\nhttps://docs.x.ai/overview\r\nNot sure if open API supported",
+  "payAsYouGo": true,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": true,
+  "modelDiscoveryNotes": "",
+  "minimumCommitment": "None",
+  "hasFreeTier": false,
+  "supportsFineTuning": false,
+  "minModelCount": 13
+}

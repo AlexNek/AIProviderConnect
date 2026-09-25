@@ -1,0 +1,194 @@
+{
+  "treeId": "minModelCount",
+  "name": "Minimum Model Count Verification",
+  "description": "Verifies whether the stored minimum model count is still accurate by querying the models API, a models endpoint documented on the provider's own pages, the models page, or a fetched candidate page.",
+  "version": 2,
+  "systemPrompt": "You are a verification assistant. Compare the stored model count against the actual model count and determine if the value is still accurate. Return JSON with 'answer', 'observation' (one short sentence), and optional 'confidence'.",
+  "task": "Verify the minModelCount for {providerName} (current value: {currentValue}).",
+  "budget": {
+    "maxNodeVisits": 20,
+    "maxLlmCalls": 4,
+    "maxElapsedTime": "00:02:30",
+    "maxContextTokens": 4000
+  },
+  "startNodeId": "init-state",
+  "nodes": {
+    "init-state": {
+      "type": "action",
+      "name": "Initialize State",
+      "description": "Initializes the verification state from the current research data.",
+      "actionKey": "initVerificationState",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "is-dynamic-catalog" },
+        { "condition": "transientFailure", "nextNodeId": "init-state" },
+        { "condition": "permanentFailure", "nextNodeId": "is-dynamic-catalog" }
+      ]
+    },
+    "is-dynamic-catalog": {
+      "type": "condition",
+      "name": "Is Dynamic Catalog",
+      "description": "Checks whether the provider's model catalog is dynamic (user-managed, unknowable by any method).",
+      "predicateKey": "isDynamicModelCatalog",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "keep" },
+        { "condition": "false", "nextNodeId": "has-model-api" }
+      ]
+    },
+    "has-model-api": {
+      "type": "condition",
+      "name": "Has Model API",
+      "description": "Checks whether a model discovery API endpoint is available.",
+      "predicateKey": "hasModelDiscoveryApi",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "query-models" },
+        { "condition": "false", "nextNodeId": "discover-models-endpoint" }
+      ]
+    },
+    "query-models": {
+      "type": "action",
+      "name": "Query Models",
+      "description": "Queries the models API endpoint to retrieve the current model list.",
+      "actionKey": "queryModelsEndpoint",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "compare-count" },
+        { "condition": "transientFailure", "nextNodeId": "query-models" },
+        { "condition": "permanentFailure", "nextNodeId": "discover-models-endpoint" }
+      ]
+    },
+    "discover-models-endpoint": {
+      "type": "action",
+      "name": "Query Documented Models Endpoint",
+      "description": "Reads the provider's own documentation pages and asks the models URL they state, which is where a gateway's public catalog usually lives when the stored base URL does not serve it.",
+      "actionKey": "queryDocumentedModelsEndpoint",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "has-documented-count" },
+        { "condition": "transientFailure", "nextNodeId": "has-models-page" },
+        { "condition": "permanentFailure", "nextNodeId": "has-models-page" }
+      ]
+    },
+    "has-documented-count": {
+      "type": "condition",
+      "name": "Has Documented Model Count",
+      "description": "Checks whether the documented endpoint returned a model list. Most providers publish none, which is a normal answer rather than a failed step, so the tree routes here instead of treating it as an error.",
+      "predicateKey": "hasDocumentedModelCount",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "compare-count" },
+        { "condition": "false", "nextNodeId": "fetch-documentation-page" }
+      ]
+    },
+    "fetch-documentation-page": {
+      "type": "action",
+      "name": "Fetch Documentation Page",
+      "description": "Fetches the provider's documentation page so the extraction action can count models listed on it. Used when the models endpoint probe found no count (auth-gated or undocumented) but the documentation page may list the available models.",
+      "actionKey": "fetchDocumentationPage",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "extract-model-count" },
+        { "condition": "transientFailure", "nextNodeId": "has-models-page" },
+        { "condition": "permanentFailure", "nextNodeId": "has-models-page" }
+      ]
+    },
+    "compare-count": {
+      "type": "action",
+      "name": "Compare Model Count",
+      "description": "Compares the stored model count against the actual count from the API.",
+      "actionKey": "compareModelCount",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "is-accurate" },
+        { "condition": "transientFailure", "nextNodeId": "compare-count" },
+        { "condition": "permanentFailure", "nextNodeId": "skip" }
+      ]
+    },
+    "is-accurate": {
+      "type": "condition",
+      "name": "Is Accurate",
+      "description": "Checks whether the stored model count matches the actual count.",
+      "predicateKey": "isModelCountAccurate",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "keep" },
+        { "condition": "false", "nextNodeId": "update" }
+      ]
+    },
+    "has-models-page": {
+      "type": "condition",
+      "name": "Has Models Page",
+      "description": "Checks whether a models page URL is available for fetching.",
+      "predicateKey": "hasModelsPageUrl",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "fetch-models-page" },
+        { "condition": "false", "nextNodeId": "web-search" }
+      ]
+    },
+    "fetch-models-page": {
+      "type": "action",
+      "name": "Fetch Models Page",
+      "description": "Fetches the models page content for analysis.",
+      "actionKey": "fetchModelsPage",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "extract-model-count" },
+        { "condition": "transientFailure", "nextNodeId": "fetch-models-page" },
+        { "condition": "permanentFailure", "nextNodeId": "web-search" }
+      ]
+    },
+    "web-search": {
+      "type": "action",
+      "name": "Web Search",
+      "description": "Searches the web for information about available models.",
+      "actionKey": "webSearch",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "has-search-results" },
+        { "condition": "transientFailure", "nextNodeId": "web-search" },
+        { "condition": "permanentFailure", "nextNodeId": "skip" }
+      ]
+    },
+    "has-search-results": {
+      "type": "condition",
+      "name": "Has Search Results",
+      "description": "Checks whether the web search produced any candidate URLs.",
+      "predicateKey": "hasCandidates",
+      "transitions": [
+        { "condition": "true", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "false", "nextNodeId": "skip" }
+      ]
+    },
+    "fetch-next-candidate": {
+      "type": "action",
+      "name": "Fetch Next Candidate",
+      "description": "Fetches the next candidate URL from the queue for model count extraction.",
+      "actionKey": "fetchNextCandidate",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "extract-model-count" },
+        { "condition": "transientFailure", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "permanentFailure", "nextNodeId": "skip" }
+      ]
+    },
+    "extract-model-count": {
+      "type": "action",
+      "name": "Extract Model Count",
+      "description": "Uses LLM (with regex fallback) to extract the model count from page content.",
+      "actionKey": "llmExtractModelCount",
+      "transitions": [
+        { "condition": "success", "nextNodeId": "compare-count" },
+        { "condition": "transientFailure", "nextNodeId": "fetch-next-candidate" },
+        { "condition": "permanentFailure", "nextNodeId": "fetch-next-candidate" }
+      ]
+    },
+    "keep": {
+      "type": "terminal",
+      "name": "Keep",
+      "description": "Terminal node indicating the current value is still accurate.",
+      "verdict": "keep"
+    },
+    "update": {
+      "type": "terminal",
+      "name": "Update",
+      "description": "Terminal node indicating the current value needs to be updated.",
+      "verdict": "update"
+    },
+    "skip": {
+      "type": "terminal",
+      "name": "Skip",
+      "description": "Terminal node indicating verification was skipped due to insufficient data.",
+      "verdict": "skip"
+    }
+  }
+}

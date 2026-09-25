@@ -1,0 +1,23 @@
+{
+  "id": "cohere",
+  "displayName": "Cohere",
+  "protocol": "OpenAICompatible",
+  "website": "https://cohere.com/",
+  "loginUrl": "https://dashboard.cohere.com/welcome/login",
+  "apiPricingUrl": "https://cohere.com/pricing",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://docs.cohere.com/",
+  "baseUrl": "https://api.cohere.com/v1/",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "DirectProvider",
+  "modelDescription": "Multiple Command and Embed models. Could use free developer key",
+  "payAsYouGo": true,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": true,
+  "modelDiscoveryNotes": "",
+  "minimumCommitment": "None",
+  "hasFreeTier": false,
+  "supportsFineTuning": false,
+  "minModelCount": 10
+}

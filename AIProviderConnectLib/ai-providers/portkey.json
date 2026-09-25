@@ -1,0 +1,23 @@
+{
+  "id": "portkey",
+  "displayName": "Portkey",
+  "protocol": "OpenAICompatible",
+  "website": "https://portkey.ai/",
+  "loginUrl": "https://app.portkey.ai/login",
+  "apiPricingUrl": "https://portkey.ai/pricing",
+  "subscriptionPricingUrl": "https://portkey.ai/pricing",
+  "documentationUrl": "https://portkey.ai/docs/product/ai-gateway/universal-api",
+  "baseUrl": "https://api.portkey.ai/v1/",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "AIGateway",
+  "modelDescription": "200-500\u002B models across 25\u002B providers",
+  "payAsYouGo": true,
+  "payAsYouGoDescription": "Usage-based overages ($9/100k requests beyond plan limits)",
+  "hasModelDiscoveryApi": true,
+  "modelDiscoveryNotes": "OpenAI-compatible endpoint with provider/ai_service filtering",
+  "minimumCommitment": "Free tier: 10k logs/mo; paid plans start at $49/mo",
+  "hasFreeTier": true,
+  "pricingNotes": "Primarily an AI gateway/observability platform; open-source gateway available for self-hosting",
+  "minModelCount": 200
+}

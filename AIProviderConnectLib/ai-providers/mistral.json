@@ -1,0 +1,23 @@
+{
+  "id": "mistral",
+  "displayName": "Mistral AI",
+  "protocol": "OpenAICompatible",
+  "website": "https://mistral.ai/",
+  "loginUrl": "https://auth.mistral.ai/ui/login",
+  "apiPricingUrl": "https://mistral.ai/pricing",
+  "subscriptionPricingUrl": "https://mistral.ai/pricing",
+  "documentationUrl": "https://docs.mistral.ai/",
+  "baseUrl": "https://api.mistral.ai/v1/",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "DirectProvider",
+  "modelDescription": "Multiple Mistral models",
+  "payAsYouGo": true,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": true,
+  "modelDiscoveryNotes": "",
+  "minimumCommitment": "None",
+  "hasFreeTier": false,
+  "supportsFineTuning": false,
+  "minModelCount": 6
+}

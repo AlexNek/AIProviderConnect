@@ -1,0 +1,22 @@
+{
+  "id": "tgi",
+  "displayName": "Text Generation Inference (TGI)",
+  "protocol": "OpenAICompatible",
+  "website": "https://huggingface.co/docs/text-generation-inference/en/index",
+  "loginUrl": "-",
+  "apiPricingUrl": "-",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://huggingface.co/docs/text-generation-inference/en/messages_api",
+  "baseUrl": "http://localhost:3000/v1/",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "SelfHosted",
+  "modelDescription": "Text Generation Inference server",
+  "payAsYouGo": false,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": false,
+  "modelDiscoveryNotes": "Local only",
+  "minimumCommitment": "Free \u2014 open source",
+  "hasFreeTier": true,
+  "isDynamicModelCatalog": true
+}

@@ -1,0 +1,22 @@
+{
+  "id": "vllm",
+  "displayName": "vLLM",
+  "protocol": "OpenAICompatible",
+  "website": "https://vllm.ai",
+  "loginUrl": "-",
+  "apiPricingUrl": "-",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://docs.vllm.ai/en/latest/serving/online_serving/",
+  "baseUrl": "http://localhost:8000/v1/",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "SelfHosted",
+  "modelDescription": "High-throughput inference server",
+  "payAsYouGo": false,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": false,
+  "modelDiscoveryNotes": "Local only",
+  "minimumCommitment": "Free \u2014 open source",
+  "hasFreeTier": true,
+  "isDynamicModelCatalog": true
+}

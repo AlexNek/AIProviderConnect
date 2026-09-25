@@ -1,0 +1,139 @@
+<UserControl x:Class="ScraperTool.Controls.AiAnalysisPanelControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:ScraperTool.Controls"
+             xmlns:vm="clr-namespace:ScraperTool.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:AiAnalysisPanelViewModel}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#FAFAFA" Padding="16,12" BorderBrush="#DDD" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="Sends each provider's JSON definition to AI for corrections. Approve suggestions to apply them."
+                           TextWrapping="Wrap" Foreground="#555" VerticalAlignment="Center" Margin="0,0,16,0" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ProgressBar Width="120" Height="16" IsIndeterminate="{Binding IsBusy}"
+                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" Margin="0,0,8,0" />
+                    <Button Content="Start" Command="{Binding StartWorkCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                            Background="#7B1FA2" Foreground="White" Padding="16,6"
+                            FontWeight="SemiBold" BorderThickness="0" Margin="8,0,0,0" />
+                    <Button Content="Cancel" Command="{Binding CancelOperationCommand}"
+                            Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                            IsEnabled="{Binding IsPaused, Converter={StaticResource InverseBool}}"
+                            Background="#C62828" Foreground="White" Padding="10,4"
+                            FontWeight="SemiBold" BorderThickness="0" Margin="6,0,0,0" />
+                    <Button Content="Pause" Command="{Binding PauseOperationCommand}"
+                            Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                            IsEnabled="{Binding IsPaused, Converter={StaticResource InverseBool}}"
+                            Background="#E65100" Foreground="White" Padding="10,4"
+                            FontWeight="SemiBold" BorderThickness="0" Margin="6,0,0,0" />
+                    <Button Content="Resume" Command="{Binding ResumeOperationCommand}"
+                            Visibility="{Binding IsPaused, Converter={StaticResource BoolToVis}}"
+                            Background="#009688" Foreground="White" Padding="10,4"
+                            FontWeight="SemiBold" BorderThickness="0" Margin="6,0,0,0" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Scrollable results -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="8">
+                <!-- Empty state placeholder -->
+                <Border Padding="48,32" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsBusy}" Value="False" />
+                                        <Condition Binding="{Binding HasAiSuggestions}" Value="False" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="No AI analysis results yet" FontSize="16" FontWeight="SemiBold"
+                                   Foreground="#555" HorizontalAlignment="Center" Margin="0,0,0,8" />
+                        <TextBlock Text="Click Start to send provider definitions to AI for review."
+                                   FontSize="13" Foreground="#888" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <controls:SuggestionDataGridControl
+                    ItemsSource="{Binding AiSuggestions}"
+                    ApplyCommand="{Binding ApplyApprovedSuggestionsCommand}"
+                    SelectAllCommand="{Binding SelectAllSuggestionsCommand}"
+                    DeselectAllCommand="{Binding DeselectAllSuggestionsCommand}"
+                    AccentBrush="#7B1FA2"
+                    AltRowBrush="#F3E5F5">
+                    <controls:SuggestionDataGridControl.Style>
+                        <Style TargetType="controls:SuggestionDataGridControl">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsBusy}" Value="False" />
+                                        <Condition Binding="{Binding HasAiSuggestions}" Value="False" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </controls:SuggestionDataGridControl.Style>
+                </controls:SuggestionDataGridControl>
+
+                <!--  Elapsed time — shows while running and persists as summary after completion  -->
+                <TextBlock
+                    Margin="0,4"
+                    VerticalAlignment="Center"
+                    FontFamily="Cascadia Code, Consolas, Courier New"
+                    FontSize="13"
+                    FontWeight="SemiBold"
+                    Foreground="#7B1FA2"
+                    Text="{Binding ElapsedTime, FallbackValue='00:00:00'}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Timer.IsRunning}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding HasElapsedSummary}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <controls:LogPanelControl
+                    ItemsSource="{Binding Log}" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Bottom bar -->
+        <Border Grid.Row="2" Background="#E8E8E8" Padding="12,6">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Clear results" Command="{Binding ClearResultsCommand}" Padding="8,2" />
+                <Button Content="Copy log" Command="{Binding CopyLogCommand}" Padding="8,2" Margin="8,0,0,0" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

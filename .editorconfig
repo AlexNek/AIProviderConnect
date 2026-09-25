@@ -1,0 +1,24 @@
+root = true
+
+[*.cs]
+# Disable all BCC (opinion/style) analyzer rules
+dotnet_diagnostic.BCC2001.severity = none
+dotnet_diagnostic.BCC2002.severity = none
+dotnet_diagnostic.BCC2003.severity = none
+dotnet_diagnostic.BCC2004.severity = none
+dotnet_diagnostic.BCC2005.severity = none
+dotnet_diagnostic.BCC2006.severity = none
+dotnet_diagnostic.BCC2007.severity = none
+dotnet_diagnostic.BCC2008.severity = none
+dotnet_diagnostic.BCC2009.severity = none
+dotnet_diagnostic.BCC2010.severity = none
+dotnet_diagnostic.BCC3001.severity = none
+dotnet_diagnostic.BCC3002.severity = none
+dotnet_diagnostic.BCC3003.severity = none
+dotnet_diagnostic.BCC3004.severity = none
+dotnet_diagnostic.BCC3005.severity = none
+dotnet_diagnostic.BCC3006.severity = none
+dotnet_diagnostic.BCC3007.severity = none
+dotnet_diagnostic.BCC3008.severity = none
+dotnet_diagnostic.BCC3009.severity = none
+dotnet_diagnostic.BCC3010.severity = none

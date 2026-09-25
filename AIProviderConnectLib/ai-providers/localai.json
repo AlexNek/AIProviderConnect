@@ -1,0 +1,22 @@
+{
+  "id": "localai",
+  "displayName": "LocalAI",
+  "protocol": "OpenAICompatible",
+  "website": "https://localai.io/",
+  "loginUrl": "-",
+  "apiPricingUrl": "-",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://localai.io/basics/getting_started/",
+  "baseUrl": "http://localhost:8080/v1/",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "SelfHosted",
+  "modelDescription": "Local model runtime",
+  "payAsYouGo": false,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": false,
+  "modelDiscoveryNotes": "Local only",
+  "minimumCommitment": "Free \u2014 open source",
+  "hasFreeTier": true,
+  "isDynamicModelCatalog": true
+}

@@ -1,0 +1,23 @@
+{
+  "id": "groq",
+  "displayName": "Groq",
+  "protocol": "OpenAICompatible",
+  "website": "https://groq.com/",
+  "loginUrl": "https://console.groq.com/keys",
+  "apiPricingUrl": "https://console.groq.com/docs/models",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://console.groq.com/docs/openai",
+  "baseUrl": "https://api.groq.com/v1/",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "HostedInference",
+  "modelDescription": "Multiple open-source models with ultra-low-latency inference",
+  "payAsYouGo": true,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": true,
+  "modelDiscoveryNotes": "",
+  "minimumCommitment": "None",
+  "hasFreeTier": false,
+  "supportsFineTuning": false,
+  "minModelCount": 23
+}

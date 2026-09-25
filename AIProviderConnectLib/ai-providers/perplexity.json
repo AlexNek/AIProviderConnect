@@ -1,0 +1,23 @@
+{
+  "id": "perplexity",
+  "displayName": "Perplexity",
+  "protocol": "OpenAICompatible",
+  "website": "https://www.perplexity.ai/",
+  "loginUrl": "https://console.perplexity.ai",
+  "apiPricingUrl": "https://docs.perplexity.ai/docs/getting-started/pricing",
+  "subscriptionPricingUrl": "-",
+  "documentationUrl": "https://docs.perplexity.ai/docs/getting-started/overview",
+  "baseUrl": "https://api.perplexity.ai/v1/",
+  "chatEndpoint": "chat/completions",
+  "modelsEndpoint": "models",
+  "category": "DirectProvider",
+  "modelDescription": "Proprietary search and reasoning models. Login on mail site",
+  "payAsYouGo": true,
+  "payAsYouGoDescription": "",
+  "hasModelDiscoveryApi": true,
+  "modelDiscoveryNotes": "Limited model discovery.\r\nhttps://docs.perplexity.ai/api-reference/models-get",
+  "minimumCommitment": "None",
+  "hasFreeTier": false,
+  "supportsFineTuning": false,
+  "minModelCount": 24
+}
