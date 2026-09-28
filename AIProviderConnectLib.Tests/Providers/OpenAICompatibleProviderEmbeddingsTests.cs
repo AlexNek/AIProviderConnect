@@ -109,6 +109,77 @@ public class OpenAICompatibleProviderEmbeddingsTests
         ex.Code.Should().Be(AiErrorCodes.EmbeddingModelNotConfigured);
     }
 
+    // --- Response alignment against the request input ---
+
+    [Fact]
+    public async Task EmbedAsync_VectorCountDoesNotMatchInput_ThrowsEmbeddingFailed()
+    {
+        // Arrange — two inputs, but the provider returns a single vector
+        using var handler = new CapturingHttpMessageHandler("""
+            { "data": [{ "index": 0, "embedding": [0.1, 0.2] }] }
+            """);
+        var provider = CreateProvider(handler);
+        var request = new EmbeddingRequest { Model = "embed-model", Input = ["hello", "world"] };
+
+        // Act
+        Func<Task> act = () => provider.EmbedAsync(request);
+
+        // Assert
+        var ex = (await act.Should().ThrowAsync<AiException>()).Which;
+        ex.Code.Should().Be(AiErrorCodes.EmbeddingFailed);
+        ex.Message.Should().Contain("1 vectors for 2 input strings");
+    }
+
+    [Fact]
+    public async Task EmbedAsync_IndicesNotZeroBased_ThrowsEmbeddingFailed()
+    {
+        // Arrange — two inputs and two vectors, but the provider numbers them 1 and 2
+        using var handler = new CapturingHttpMessageHandler("""
+            {
+              "data": [
+                { "index": 1, "embedding": [0.1, 0.2] },
+                { "index": 2, "embedding": [0.3, 0.4] }
+              ]
+            }
+            """);
+        var provider = CreateProvider(handler);
+        var request = new EmbeddingRequest { Model = "embed-model", Input = ["hello", "world"] };
+
+        // Act
+        Func<Task> act = () => provider.EmbedAsync(request);
+
+        // Assert
+        var ex = (await act.Should().ThrowAsync<AiException>()).Which;
+        ex.Code.Should().Be(AiErrorCodes.EmbeddingFailed);
+        ex.Message.Should().Contain("the entry at position 0 has index 1");
+    }
+
+    [Fact]
+    public async Task EmbedAsync_InputAndResponseAligned_ReturnsVectorsInInputOrder()
+    {
+        // Arrange — indices cover 0..n-1 but arrive swapped in the payload
+        using var handler = new CapturingHttpMessageHandler("""
+            {
+              "data": [
+                { "index": 1, "embedding": [0.3, 0.4] },
+                { "index": 0, "embedding": [0.1, 0.2] }
+              ]
+            }
+            """);
+        var provider = CreateProvider(handler);
+        var request = new EmbeddingRequest { Model = "embed-model", Input = ["hello", "world"] };
+
+        // Act
+        var response = await provider.EmbedAsync(request);
+
+        // Assert — alignment accepted, re-sorted back to input order
+        response.Data.Should().HaveCount(2);
+        response.Data[0].Index.Should().Be(0);
+        response.Data[0].Embedding.Should().Equal(0.1f, 0.2f);
+        response.Data[1].Index.Should().Be(1);
+        response.Data[1].Embedding.Should().Equal(0.3f, 0.4f);
+    }
+
     // --- HTTP error classification (X1-IMP-002) ---
 
     [Theory]

@@ -132,6 +132,36 @@ public class OpenAICompatibleWireProtocolEmbeddingsTests
     }
 
     [Fact]
+    public void ParseEmbeddingsResponse_FractionalIndex_ThrowsEmbeddingFailed()
+    {
+        // Arrange — numeric token that cannot be converted to Int32 without rounding
+        var json = JsonDocument.Parse("""
+            { "data": [{ "index": 1.5, "embedding": [0.1] }] }
+            """).RootElement;
+
+        var act = () => OpenAICompatibleWireProtocol.ParseEmbeddingsResponse(json);
+
+        var ex = act.Should().Throw<AiException>().Which;
+        ex.Code.Should().Be(AiErrorCodes.EmbeddingFailed);
+        ex.Message.Should().Be("Embedding response contains a data entry without a valid index.");
+    }
+
+    [Fact]
+    public void ParseEmbeddingsResponse_IndexAboveInt32Range_ThrowsEmbeddingFailed()
+    {
+        // Arrange — integer that overflows Int32
+        var json = JsonDocument.Parse("""
+            { "data": [{ "index": 3000000000, "embedding": [0.1] }] }
+            """).RootElement;
+
+        var act = () => OpenAICompatibleWireProtocol.ParseEmbeddingsResponse(json);
+
+        var ex = act.Should().Throw<AiException>().Which;
+        ex.Code.Should().Be(AiErrorCodes.EmbeddingFailed);
+        ex.Message.Should().Be("Embedding response contains a data entry without a valid index.");
+    }
+
+    [Fact]
     public void ParseEmbeddingsResponse_DuplicateIndex_ThrowsEmbeddingFailed()
     {
         var json = JsonDocument.Parse("""
@@ -147,6 +177,40 @@ public class OpenAICompatibleWireProtocolEmbeddingsTests
 
         var ex = act.Should().Throw<AiException>().Which;
         ex.Code.Should().Be(AiErrorCodes.EmbeddingFailed);
+    }
+
+    [Theory]
+    [InlineData("[0.1, \"oops\"]")]
+    [InlineData("[0.1, null]")]
+    [InlineData("[0.1, [0.2]]")]
+    public void ParseEmbeddingsResponse_NonNumericEmbeddingElement_ThrowsEmbeddingFailed(string embeddingArray)
+    {
+        // Arrange — a valid element followed by one that is not a float-convertible number
+        var json = JsonDocument.Parse($$"""
+            { "data": [{ "index": 0, "embedding": {{embeddingArray}} }] }
+            """).RootElement;
+
+        var act = () => OpenAICompatibleWireProtocol.ParseEmbeddingsResponse(json);
+
+        var ex = act.Should().Throw<AiException>().Which;
+        ex.Code.Should().Be(AiErrorCodes.EmbeddingFailed);
+        ex.Message.Should().Contain("non-numeric embedding element at position 1 within index 0");
+    }
+
+    [Fact]
+    public void ParseEmbeddingsResponse_MixedNumericFormats_PreservesOrderAndDimensions()
+    {
+        // Arrange — integers and negatives mixed with fractions must all be kept
+        var json = JsonDocument.Parse("""
+            { "data": [{ "index": 0, "embedding": [0.1, 2, -3.5, 0.25] }] }
+            """).RootElement;
+
+        // Act
+        var response = OpenAICompatibleWireProtocol.ParseEmbeddingsResponse(json);
+
+        // Assert — full vector length, in the order the provider returned it
+        response.Data[0].Embedding.Should().HaveCount(4);
+        response.Data[0].Embedding.Should().Equal(0.1f, 2f, -3.5f, 0.25f);
     }
 
     [Fact]

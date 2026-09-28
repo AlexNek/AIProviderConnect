@@ -96,18 +96,21 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
         }
     }
 
-    public Task<EmbeddingResponse> EmbedAsync(
+    public async Task<EmbeddingResponse> EmbedAsync(
         EmbeddingRequest request, CancellationToken cancellationToken = default)
     {
         ValidateEmbeddingRequest(request);
         var model = ResolveEmbeddingModel(request.Model);
         var requestWithModel = request with { Model = model };
-        return SendEmbeddingsAndParseAsync(
+        var response = await SendEmbeddingsAndParseAsync(
             EmbeddingsEndpoint,
             OpenAICompatibleWireProtocol.MapEmbeddingsRequest(requestWithModel),
             ConfigureHeaders,
             OpenAICompatibleWireProtocol.ParseEmbeddingsResponse,
             cancellationToken);
+
+        ValidateEmbeddingResponse(request, response);
+        return response;
     }
 
     private void ValidateEmbeddingRequest(EmbeddingRequest request)
@@ -126,6 +129,28 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
                 throw new AiException(
                     AiErrorCodes.InvalidRequest,
                     "Embedding request input cannot contain empty or whitespace strings.");
+            }
+        }
+    }
+
+    // The wire parser validates each entry in isolation and cannot know how many inputs were
+    // sent, so the one-vector-per-input and 0..n-1 ordering invariants are checked here.
+    private void ValidateEmbeddingResponse(EmbeddingRequest request, EmbeddingResponse response)
+    {
+        if (response.Data.Count != request.Input.Count)
+        {
+            throw new AiException(
+                AiErrorCodes.EmbeddingFailed,
+                $"Embedding response contains {response.Data.Count} vectors for {request.Input.Count} input strings.");
+        }
+
+        for (var position = 0; position < response.Data.Count; position++)
+        {
+            if (response.Data[position].Index != position)
+            {
+                throw new AiException(
+                    AiErrorCodes.EmbeddingFailed,
+                    $"Embedding response is not indexed from 0: the entry at position {position} has index {response.Data[position].Index}.");
             }
         }
     }

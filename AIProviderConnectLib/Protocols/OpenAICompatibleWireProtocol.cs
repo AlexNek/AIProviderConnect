@@ -405,7 +405,7 @@ public static class OpenAICompatibleWireProtocol
 
     /// <summary>
     /// Parses an OpenAI-compatible embeddings response into an <see cref="EmbeddingResponse"/>.
-    /// Validates that each data entry has a valid index and non-empty embedding array.
+    /// Validates that each data entry has a valid index and a non-empty embedding array of numeric elements.
     /// </summary>
     public static EmbeddingResponse ParseEmbeddingsResponse(JsonElement json)
     {
@@ -437,15 +437,18 @@ public static class OpenAICompatibleWireProtocol
         var seenIndices = new HashSet<int>();
         foreach (var item in dataProp.EnumerateArray())
         {
+            // TryGetInt32 is non-throwing: a fractional or out-of-range numeric token
+            // fails the conversion and surfaces as EmbeddingFailed instead of escaping
+            // as InvalidOperationException/OverflowException from GetInt32.
             if (!item.TryGetProperty(OpenAICompatiblePropertyNames.Index, out var indexProp)
-                || indexProp.ValueKind != JsonValueKind.Number)
+                || indexProp.ValueKind != JsonValueKind.Number
+                || !indexProp.TryGetInt32(out var index))
             {
                 throw new AiException(
                     AiErrorCodes.EmbeddingFailed,
                     "Embedding response contains a data entry without a valid index.");
             }
 
-            var index = indexProp.GetInt32();
             if (index < 0)
             {
                 throw new AiException(
@@ -471,10 +474,16 @@ public static class OpenAICompatibleWireProtocol
             var embedding = new List<float>();
             foreach (var element in embeddingProp.EnumerateArray())
             {
-                if (element.ValueKind == JsonValueKind.Number && element.TryGetSingle(out var value))
+                // Every element must be numeric and convertible to float; skipping bad elements
+                // would silently return a shortened vector instead of the provider's dimensions.
+                if (element.ValueKind != JsonValueKind.Number || !element.TryGetSingle(out var value))
                 {
-                    embedding.Add(value);
+                    throw new AiException(
+                        AiErrorCodes.EmbeddingFailed,
+                        $"Embedding response contains a non-numeric embedding element at position {embedding.Count} within index {index}.");
                 }
+
+                embedding.Add(value);
             }
 
             if (embedding.Count == 0)
