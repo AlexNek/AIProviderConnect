@@ -23,6 +23,17 @@ public static class AiErrorCodes
     public const string Forbidden = "ai/forbidden";
 
     /// <summary>
+    /// The provider returned an error response when asked to embed.
+    /// Maps HTTP 400/404/422 from the embeddings endpoint.
+    /// </summary>
+    public const string EmbeddingFailed = "ai/embedding-failed";
+
+    /// <summary>
+    /// EmbedAsync was called with an empty Model and no DefaultEmbeddingModel is set.
+    /// </summary>
+    public const string EmbeddingModelNotConfigured = "ai/embedding-model-not-configured";
+
+    /// <summary>
     /// The request was invalid — malformed syntax, unknown model, schema violation, or
     /// other client-side error (HTTP 400).
     /// </summary>

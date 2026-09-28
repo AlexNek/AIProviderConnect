@@ -1,6 +1,8 @@
+using System.Linq;
 using System.Text.Json;
 
 using AIProviderConnect.Constants;
+using AIProviderConnect.Exceptions;
 using AIProviderConnect.Models;
 
 namespace AIProviderConnect.Protocols;
@@ -387,5 +389,112 @@ public static class OpenAICompatibleWireProtocol
         return isCompleted
                    ? new StreamingChatChunk { IsCompleted = true }
                    : null;
+    }
+
+    /// <summary>
+    /// Maps an <see cref="EmbeddingRequest"/> to an OpenAI-compatible request payload.
+    /// </summary>
+    public static Dictionary<string, object> MapEmbeddingsRequest(EmbeddingRequest request)
+    {
+        return new Dictionary<string, object>
+        {
+            [OpenAICompatiblePropertyNames.Model] = request.Model,
+            [OpenAICompatiblePropertyNames.Input] = request.Input
+        };
+    }
+
+    /// <summary>
+    /// Parses an OpenAI-compatible embeddings response into an <see cref="EmbeddingResponse"/>.
+    /// Validates that each data entry has a valid index and non-empty embedding array.
+    /// </summary>
+    public static EmbeddingResponse ParseEmbeddingsResponse(JsonElement json)
+    {
+        var model = json.TryGetProperty(OpenAICompatiblePropertyNames.Model, out var modelProp)
+                        ? modelProp.GetString() ?? string.Empty
+                        : string.Empty;
+
+        var usage = new EmbeddingUsage();
+        if (json.TryGetProperty(OpenAICompatiblePropertyNames.Usage, out var usageProp))
+        {
+            usage = new EmbeddingUsage
+            {
+                PromptTokens = usageProp.TryGetProperty(OpenAICompatiblePropertyNames.PromptTokens, out var promptTokens)
+                               && promptTokens.ValueKind == JsonValueKind.Number
+                                   ? promptTokens.GetInt32()
+                                   : 0
+            };
+        }
+
+        var data = new List<EmbeddingData>();
+        if (json.TryGetProperty(OpenAICompatiblePropertyNames.Data, out var dataProp)
+            && dataProp.ValueKind == JsonValueKind.Array)
+        {
+            var seenIndices = new HashSet<int>();
+            foreach (var item in dataProp.EnumerateArray())
+            {
+                if (!item.TryGetProperty(OpenAICompatiblePropertyNames.Index, out var indexProp)
+                    || indexProp.ValueKind != JsonValueKind.Number)
+                {
+                    throw new AiException(
+                        AiErrorCodes.EmbeddingFailed,
+                        "Embedding response contains a data entry without a valid index.");
+                }
+
+                var index = indexProp.GetInt32();
+                if (index < 0)
+                {
+                    throw new AiException(
+                        AiErrorCodes.EmbeddingFailed,
+                        $"Embedding response contains a data entry with a negative index: {index}.");
+                }
+
+                if (!seenIndices.Add(index))
+                {
+                    throw new AiException(
+                        AiErrorCodes.EmbeddingFailed,
+                        $"Embedding response contains duplicate index: {index}.");
+                }
+
+                if (!item.TryGetProperty(OpenAICompatiblePropertyNames.Embedding, out var embeddingProp)
+                    || embeddingProp.ValueKind != JsonValueKind.Array)
+                {
+                    throw new AiException(
+                        AiErrorCodes.EmbeddingFailed,
+                        $"Embedding response contains a data entry at index {index} without an embedding array.");
+                }
+
+                var embedding = new List<float>();
+                foreach (var element in embeddingProp.EnumerateArray())
+                {
+                    if (element.ValueKind == JsonValueKind.Number && element.TryGetSingle(out var value))
+                    {
+                        embedding.Add(value);
+                    }
+                }
+
+                if (embedding.Count == 0)
+                {
+                    throw new AiException(
+                        AiErrorCodes.EmbeddingFailed,
+                        $"Embedding response contains an empty embedding array at index {index}.");
+                }
+
+                data.Add(new EmbeddingData
+                {
+                    Index = index,
+                    Embedding = embedding.ToArray()
+                });
+            }
+        }
+
+        // Re-sort by index to ensure the caller receives vectors in input order
+        var sortedData = data.OrderBy(d => d.Index).ToList();
+
+        return new EmbeddingResponse
+        {
+            Data = sortedData,
+            Model = model,
+            Usage = usage
+        };
     }
 }

@@ -337,6 +337,39 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
         }
     }
 
+    /// <summary>
+    /// Shared embeddings transport: builds a POST request, sends it, validates the response,
+    /// deserializes the JSON body, and delegates parsing to the caller-supplied function.
+    /// </summary>
+    protected async Task<EmbeddingResponse> SendEmbeddingsAndParseAsync(
+        string endpoint,
+        object? payload,
+        Action<HttpRequestMessage>? configureHeaders,
+        Func<JsonElement, EmbeddingResponse> parseResponse,
+        CancellationToken cancellationToken)
+    {
+        EnsureProviderEnabled();
+        Logger.LogDebug("Provider '{ProviderId}': sending POST request to {Endpoint}", ProviderId, endpoint);
+        try
+        {
+            return await _resiliencePipeline.ExecuteAsync(async ct =>
+            {
+                using var httpRequest = BuildRequest(Options, HttpMethod.Post, endpoint, payload, configureHeaders);
+                using var response = await TranslateNetworkExceptionsAsync(
+                    () => HttpClient.SendAsync(httpRequest, ct), ct);
+                await ThrowIfErrorAsync(response, ct);
+                var json = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+                Logger.LogDebug("Provider '{ProviderId}': embeddings response received (HTTP {StatusCode})", ProviderId, (int)response.StatusCode);
+                return parseResponse(json);
+            }, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogTransportFailure(ex, endpoint);
+            throw;
+        }
+    }
+
     private void LogTransportFailure(Exception ex, string endpoint)
     {
         if (ex is AiException { Code: AiErrorCodes.RateLimited })
