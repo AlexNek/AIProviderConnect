@@ -20,4 +20,15 @@ public sealed class OpenAICompatibleProvider : OpenAICompatibleProviderBase, IEm
         : base(httpClient, catalog, options, providerId, logger)
     {
     }
+
+    public OpenAICompatibleProvider(
+        HttpClient httpClient,
+        AIProviderOptions options,
+        IProviderCatalog catalog,
+        string providerId,
+        ILogger logger,
+        ICredentialResolver? credentialResolver)
+        : base(httpClient, catalog, options, providerId, logger, credentialResolver)
+    {
+    }
 }

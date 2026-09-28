@@ -32,6 +32,8 @@ public sealed class AIProviderRegistrationBuilder
 
     private bool _hasModelOverrides;
 
+    private ICredentialResolver? _credentialResolver;
+
     /// <summary>
     /// Gets the ids registered with a custom <see cref="IAIProvider"/> factory. These are
     /// excluded from the automatic per-protocol registration loop.
@@ -57,6 +59,12 @@ public sealed class AIProviderRegistrationBuilder
     /// </summary>
     internal IModelOverrideStore? ModelOverrideStore =>
         _modelOverrideStore ?? (_hasModelOverrides ? _modelOverrides : null);
+
+    /// <summary>
+    /// Gets the consumer-supplied <see cref="ICredentialResolver"/>, or <c>null</c> when
+    /// <see cref="UseCredentialResolver"/> was not called. No default implementation is registered.
+    /// </summary>
+    internal ICredentialResolver? CredentialResolver => _credentialResolver;
 
     /// <summary>
     /// Adds a new definition, or replaces an already-added definition with the same id
@@ -156,6 +164,20 @@ public sealed class AIProviderRegistrationBuilder
         ArgumentNullException.ThrowIfNull(store);
 
         _modelOverrideStore = store;
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a consumer-supplied <see cref="ICredentialResolver"/> consulted once per provider call
+    /// to supply runtime credential/model overrides. Registered as a singleton; the library provides no
+    /// default implementation.
+    /// </summary>
+    /// <param name="resolver">The resolver to consult per call.</param>
+    public AIProviderRegistrationBuilder UseCredentialResolver(ICredentialResolver resolver)
+    {
+        ArgumentNullException.ThrowIfNull(resolver);
+
+        _credentialResolver = resolver;
         return this;
     }
 

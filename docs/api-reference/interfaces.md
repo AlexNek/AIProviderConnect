@@ -117,6 +117,30 @@ instances from the container.
 public interface IAIProviderFactory
 {
     IAIProvider GetProvider(string providerId);
+
+    IAIProvider GetProvider(string providerId, RequestCredentials overrides);
+}
+```
+
+| Member | Description |
+| --- | --- |
+| `GetProvider(providerId)` | Returns the shared keyed `IAIProvider` singleton configured from DI options |
+| `GetProvider(providerId, overrides)` | Returns a **transient** provider bound to the supplied `RequestCredentials`; `FixedCredentials` take priority over any `ICredentialResolver` and over configured options, and the singleton is left unchanged |
+
+## ICredentialResolver
+
+Consumer-supplied, thread-safe singleton consulted once per provider call to
+supply runtime credential/model overrides. Register it with
+`AddAiProviders(b => b.UseCredentialResolver(resolver))` or directly as
+`services.AddSingleton<ICredentialResolver>(...)`. The library provides no
+default implementation. See [Runtime Credentials](../concepts/runtime-credentials.md).
+
+```csharp
+public interface ICredentialResolver
+{
+    ValueTask<RequestCredentials?> ResolveAsync(
+        string providerId,
+        CancellationToken cancellationToken = default);
 }
 ```
 

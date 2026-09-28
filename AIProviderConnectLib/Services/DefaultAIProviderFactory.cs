@@ -1,5 +1,7 @@
 using AIProviderConnect.Abstractions;
 using AIProviderConnect.Exceptions;
+using AIProviderConnect.Models;
+using AIProviderConnect.Providers;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,5 +15,14 @@ public sealed class DefaultAIProviderFactory(IServiceProvider services) : IAIPro
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
         return services.GetKeyedService<IAIProvider>(providerId)
             ?? throw new AiException(AiErrorCodes.ProviderNotFound, $"Provider '{providerId}' is not registered.");
+    }
+
+    public IAIProvider GetProvider(string providerId, RequestCredentials overrides)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
+        ArgumentNullException.ThrowIfNull(overrides);
+        var activator = services.GetKeyedService<ProviderActivator>(providerId)
+            ?? throw new AiException(AiErrorCodes.ProviderNotFound, $"Provider '{providerId}' is not registered.");
+        return activator.Create(overrides);
     }
 }
