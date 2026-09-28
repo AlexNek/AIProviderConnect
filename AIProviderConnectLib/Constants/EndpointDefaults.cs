@@ -4,6 +4,8 @@ public static class EndpointDefaults
 {
     public const string ChatCompletions = "chat/completions";
 
+    public const string Embeddings = "embeddings";
+
     public const string Messages = "messages";
 
     public const string Models = "models";

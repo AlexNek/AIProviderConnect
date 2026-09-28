@@ -14,10 +14,12 @@ public static class OpenAICompatiblePropertyNames
     public const string Description = "description";
     public const string Detail = "detail";
     public const string DisplayName = "display_name";
+    public const string Embedding = "embedding";
     public const string FinishReason = "finish_reason";
     public const string Function = "function";
     public const string Id = "id";
     public const string Index = "index";
+    public const string Input = "input";
     public const string JsonSchema = "json_schema";
     public const string MaxInputTokens = "max_input_tokens";
     public const string Message = "message";

@@ -9,7 +9,7 @@ namespace AIProviderConnect.Providers;
 /// Concrete provider for OpenAI-compatible and hybrid gateway AI providers.
 /// Metadata (Name, DisplayName, etc.) is resolved from the ProviderCatalog at runtime.
 /// </summary>
-public sealed class OpenAICompatibleProvider : OpenAICompatibleProviderBase
+public sealed class OpenAICompatibleProvider : OpenAICompatibleProviderBase, IEmbeddingProvider
 {
     public OpenAICompatibleProvider(
         HttpClient httpClient,

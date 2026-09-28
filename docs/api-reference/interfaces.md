@@ -56,6 +56,19 @@ public interface IModelDiscoveryProvider
 }
 ```
 
+## IEmbeddingProvider
+
+Optional embeddings capability — see [Embeddings](../chat/embeddings.md).
+
+```csharp
+public interface IEmbeddingProvider
+{
+    Task<EmbeddingResponse> EmbedAsync(
+        EmbeddingRequest request,
+        CancellationToken cancellationToken = default);
+}
+```
+
 ## IModelOverrideStore
 
 Consumer-supplied source of `ModelOverride` entries, keyed by provider id.

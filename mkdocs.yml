@@ -51,6 +51,7 @@ nav:
       - Chat Completions: chat/chat-completions.md
       - Streaming: chat/streaming.md
       - Tool Calling: chat/tool-calling.md
+      - Embeddings: chat/embeddings.md
   - Model Discovery:
       - Model Discovery: model-discovery/model-discovery.md
   - API Reference:

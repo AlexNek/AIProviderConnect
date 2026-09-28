@@ -337,6 +337,39 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
         }
     }
 
+    /// <summary>
+    /// Shared embeddings transport: builds a POST request, sends it, validates the response,
+    /// deserializes the JSON body, and delegates parsing to the caller-supplied function.
+    /// </summary>
+    protected async Task<EmbeddingResponse> SendEmbeddingsAndParseAsync(
+        string endpoint,
+        object? payload,
+        Action<HttpRequestMessage>? configureHeaders,
+        Func<JsonElement, EmbeddingResponse> parseResponse,
+        CancellationToken cancellationToken)
+    {
+        EnsureProviderEnabled();
+        Logger.LogDebug("Provider '{ProviderId}': sending POST request to {Endpoint}", ProviderId, endpoint);
+        try
+        {
+            return await _resiliencePipeline.ExecuteAsync(async ct =>
+            {
+                using var httpRequest = BuildRequest(Options, HttpMethod.Post, endpoint, payload, configureHeaders);
+                using var response = await TranslateNetworkExceptionsAsync(
+                    () => HttpClient.SendAsync(httpRequest, ct), ct);
+                await ThrowIfEmbeddingErrorAsync(response, ct);
+                var json = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+                Logger.LogDebug("Provider '{ProviderId}': embeddings response received (HTTP {StatusCode})", ProviderId, (int)response.StatusCode);
+                return parseResponse(json);
+            }, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogTransportFailure(ex, endpoint);
+            throw;
+        }
+    }
+
     private void LogTransportFailure(Exception ex, string endpoint)
     {
         if (ex is AiException { Code: AiErrorCodes.RateLimited })
@@ -391,25 +424,58 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
             return;
         }
 
+        var message = await BuildHttpErrorMessageAsync(response, cancellationToken);
+        var code = MapHttpStatusToErrorCode((int)response.StatusCode);
+        throw new AiException(code, message);
+    }
+
+    /// <summary>
+    /// Embeddings-specific error check: maps HTTP 400, 404, and 422 to
+    /// <see cref="AiErrorCodes.EmbeddingFailed"/> while preserving retry-triggering
+    /// classifications (429 → <see cref="AiErrorCodes.RateLimited"/>,
+    /// 5xx → <see cref="AiErrorCodes.NoServer"/>).
+    /// </summary>
+    private static async Task ThrowIfEmbeddingErrorAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var message = await BuildHttpErrorMessageAsync(response, cancellationToken);
+        var statusCode = (int)response.StatusCode;
+        var code = statusCode switch
+        {
+            400 or 404 or 422 => AiErrorCodes.EmbeddingFailed,
+            _ => MapHttpStatusToErrorCode(statusCode)
+        };
+        throw new AiException(code, message);
+    }
+
+    private static string MapHttpStatusToErrorCode(int statusCode) => statusCode switch
+    {
+        400 => AiErrorCodes.InvalidRequest,
+        429 => AiErrorCodes.RateLimited,
+        401 => AiErrorCodes.Unauthorized,
+        403 => AiErrorCodes.Forbidden,
+        404 => AiErrorCodes.EndpointNotFound,
+        >= 500 => AiErrorCodes.NoServer,
+        _ => AiErrorCodes.ProviderCallFailed
+    };
+
+    private static async Task<string> BuildHttpErrorMessageAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         var statusCode = (int)response.StatusCode;
         var message = $"HTTP {statusCode}: {HttpErrorMessages.GetStatusMessage(statusCode)}";
         var detail = TryExtractJsonMessage(body);
         if (!string.IsNullOrWhiteSpace(detail))
             message = $"{message} — {detail}";
-
-        var code = statusCode switch
-            {
-                400 => AiErrorCodes.InvalidRequest,
-                429 => AiErrorCodes.RateLimited,
-                401 => AiErrorCodes.Unauthorized,
-                403 => AiErrorCodes.Forbidden,
-                404 => AiErrorCodes.EndpointNotFound,
-                >= 500 => AiErrorCodes.NoServer,
-                _ => AiErrorCodes.ProviderCallFailed
-            };
-
-        throw new AiException(code, message);
+        return message;
     }
 
     private static readonly string[] ErrorMessagePaths = ["error.message", "message"];

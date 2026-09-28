@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 using AIProviderConnect.Abstractions;
+using AIProviderConnect.Exceptions;
 using AIProviderConnect.Models;
 using AIProviderConnect.Options;
 using AIProviderConnect.Protocols;
@@ -18,6 +19,8 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
 {
     private readonly string _chatEndpoint;
     private readonly string _modelsEndpoint;
+    private readonly string _embeddingsEndpoint;
+    private readonly string _defaultEmbeddingModel;
 
     protected OpenAICompatibleProviderBase(HttpClient httpClient, IProviderCatalog catalog, AIProviderOptions options, string providerId, ILogger? logger = null)
         : base(httpClient, catalog, options, providerId, logger)
@@ -29,10 +32,20 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
                 nameof(options));
         _chatEndpoint = endpointOptions.ChatEndpoint;
         _modelsEndpoint = endpointOptions.ModelsEndpoint;
+
+        var embeddingsOptions = options as IEmbeddingsEndpointOptions
+            ?? throw new ArgumentException(
+                $"Options type '{options.GetType().Name}' does not implement IEmbeddingsEndpointOptions. " +
+                "OpenAICompatibleProviderBase requires options with EmbeddingsEndpoint and DefaultEmbeddingModel.",
+                nameof(options));
+        _embeddingsEndpoint = embeddingsOptions.EmbeddingsEndpoint;
+        _defaultEmbeddingModel = embeddingsOptions.DefaultEmbeddingModel;
     }
 
     protected string ChatEndpoint => _chatEndpoint;
     protected string ModelsEndpoint => _modelsEndpoint;
+    protected string EmbeddingsEndpoint => _embeddingsEndpoint;
+    protected string DefaultEmbeddingModel => _defaultEmbeddingModel;
 
     protected virtual void ConfigureHeaders(HttpRequestMessage request) =>
         SetBearerAuthentication(request, Options.ApiKey);
@@ -81,5 +94,77 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
         {
             yield return chunk;
         }
+    }
+
+    public async Task<EmbeddingResponse> EmbedAsync(
+        EmbeddingRequest request, CancellationToken cancellationToken = default)
+    {
+        ValidateEmbeddingRequest(request);
+        var model = ResolveEmbeddingModel(request.Model);
+        var requestWithModel = request with { Model = model };
+        var response = await SendEmbeddingsAndParseAsync(
+            EmbeddingsEndpoint,
+            OpenAICompatibleWireProtocol.MapEmbeddingsRequest(requestWithModel),
+            ConfigureHeaders,
+            OpenAICompatibleWireProtocol.ParseEmbeddingsResponse,
+            cancellationToken);
+
+        ValidateEmbeddingResponse(request, response);
+        return response;
+    }
+
+    private void ValidateEmbeddingRequest(EmbeddingRequest request)
+    {
+        if (request.Input is null || request.Input.Count == 0)
+        {
+            throw new AiException(
+                AiErrorCodes.InvalidRequest,
+                "Embedding request input cannot be empty.");
+        }
+
+        foreach (var input in request.Input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                throw new AiException(
+                    AiErrorCodes.InvalidRequest,
+                    "Embedding request input cannot contain empty or whitespace strings.");
+            }
+        }
+    }
+
+    // The wire parser validates each entry in isolation and cannot know how many inputs were
+    // sent, so the one-vector-per-input and 0..n-1 ordering invariants are checked here.
+    private void ValidateEmbeddingResponse(EmbeddingRequest request, EmbeddingResponse response)
+    {
+        if (response.Data.Count != request.Input.Count)
+        {
+            throw new AiException(
+                AiErrorCodes.EmbeddingFailed,
+                $"Embedding response contains {response.Data.Count} vectors for {request.Input.Count} input strings.");
+        }
+
+        for (var position = 0; position < response.Data.Count; position++)
+        {
+            if (response.Data[position].Index != position)
+            {
+                throw new AiException(
+                    AiErrorCodes.EmbeddingFailed,
+                    $"Embedding response is not indexed from 0: the entry at position {position} has index {response.Data[position].Index}.");
+            }
+        }
+    }
+
+    private string ResolveEmbeddingModel(string requestModel)
+    {
+        if (!string.IsNullOrWhiteSpace(requestModel))
+            return requestModel;
+
+        if (!string.IsNullOrWhiteSpace(_defaultEmbeddingModel))
+            return _defaultEmbeddingModel;
+
+        throw new AiException(
+            AiErrorCodes.EmbeddingModelNotConfigured,
+            $"Provider '{Id}' has no embedding model configured. Set DefaultEmbeddingModel in options or provide a model in the request.");
     }
 }

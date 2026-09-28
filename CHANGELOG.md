@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Optional embeddings capability via `IEmbeddingProvider` with OpenAI-compatible `/embeddings` wire mapping, separate `DefaultEmbeddingModel` configuration, and dedicated error codes (`ai/embedding-failed`, `ai/embedding-model-not-configured`)
+
 ## [1.0.0] - 2026-09-25
 
 ### Added
