@@ -27,9 +27,12 @@ Speaks the OpenAI chat completions dialect (`OpenAICompatibleWireProtocol`):
 
 - `POST {BaseUrl}{ChatEndpoint}` (default `chat/completions`) with
   `Authorization: Bearer {ApiKey}` and optional `DefaultHeaders`.
+- `POST {BaseUrl}{EmbeddingsEndpoint}` (default `embeddings`) for embeddings
+  via `IEmbeddingProvider` — see [Embeddings](../chat/embeddings.md).
 - `GET {BaseUrl}{ModelsEndpoint}` (default `models`) for discovery.
 - Streaming requests set `stream: true` and parse server-sent events.
-- Extra options: `ChatEndpoint`, `ModelsEndpoint`.
+- Extra options: `ChatEndpoint`, `ModelsEndpoint`, `EmbeddingsEndpoint`,
+  `DefaultEmbeddingModel`.
 
 ## MessagesApiProvider
 

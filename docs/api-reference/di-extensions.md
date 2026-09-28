@@ -69,6 +69,8 @@ Base properties plus:
 | --- | --- | --- |
 | `ChatEndpoint` | `string` | `"chat/completions"` |
 | `ModelsEndpoint` | `string` | `"models"` |
+| `EmbeddingsEndpoint` | `string` | `"embeddings"` |
+| `DefaultEmbeddingModel` | `string` | `""` |
 
 ### HybridGatewayProviderOptions
 
@@ -81,6 +83,8 @@ Base properties plus:
 | --- | --- | --- |
 | `ChatEndpoint` | `string` | `"chat/completions"` |
 | `ModelsEndpoint` | `string` | `"models"` |
+| `EmbeddingsEndpoint` | `string` | `"embeddings"` |
+| `DefaultEmbeddingModel` | `string` | `""` |
 
 ### MessagesApiOptions
 

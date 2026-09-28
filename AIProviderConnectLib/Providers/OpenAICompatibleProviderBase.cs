@@ -15,7 +15,7 @@ namespace AIProviderConnect.Providers;
 /// Shared transport for providers using the OpenAI-compatible chat protocol.
 /// Endpoint selection, authentication, and catalog parsing remain protocol-specific.
 /// </summary>
-public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingChatProvider, IEmbeddingProvider
+public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingChatProvider
 {
     private readonly string _chatEndpoint;
     private readonly string _modelsEndpoint;

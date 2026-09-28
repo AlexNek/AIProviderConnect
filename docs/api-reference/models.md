@@ -88,6 +88,36 @@ All models live in the `AIProviderConnect.Models` namespace.
 | `Schema` | `JsonElement` | required |
 | `Strict` | `bool` | `true` |
 
+## Embedding Models
+
+### EmbeddingRequest
+
+| Property | Type | Default |
+| --- | --- | --- |
+| `Model` | `string` | `""` |
+| `Input` | `IReadOnlyList<string>` | *required* |
+
+### EmbeddingResponse
+
+| Property | Type | Default |
+| --- | --- | --- |
+| `Data` | `IReadOnlyList<EmbeddingData>` | `[]` |
+| `Model` | `string` | `""` |
+| `Usage` | `EmbeddingUsage` | `new()` |
+
+### EmbeddingData
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `Index` | `int` | Position in the input batch |
+| `Embedding` | `float[]` | The embedding vector |
+
+### EmbeddingUsage
+
+| Property | Type |
+| --- | --- |
+| `PromptTokens` | `int` |
+
 ## Catalog Models
 
 ### ProviderDefinition
