@@ -105,6 +105,21 @@ public class ChatModelPrecedenceTests
     }
 
     [Fact]
+    public async Task ConfigurationGate_PrecedesEmptyModelResolution()
+    {
+        // Arrange — a disabled provider and a request with no model: the actionable configuration
+        // error must surface instead of ai/invalid-request, as the streaming docs already promise.
+        using var handler = new CapturingHttpMessageHandler(ChatJson);
+        var provider = CreateProvider(handler, configureOptions: o => o.Enabled = false);
+
+        // Act
+        Func<Task> act = () => provider.ChatAsync(SampleRequest("   "));
+
+        // Assert
+        (await act.Should().ThrowAsync<AiException>()).Which.Code.Should().Be(AiErrorCodes.ProviderDisabled);
+    }
+
+    [Fact]
     public async Task Embedding_ChatDefaultModelIsNeverUsed()
     {
         // Arrange — chat DefaultModel set, embedding default empty, request model empty, no override.

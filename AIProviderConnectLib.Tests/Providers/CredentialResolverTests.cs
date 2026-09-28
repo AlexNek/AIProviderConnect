@@ -235,9 +235,31 @@ public class CredentialResolverTests
     }
 
     [Fact]
+    public async Task ConsumerConfigureHeadersKeyOverride_AppliedWhenCredentialsSupplied()
+    {
+        // Arrange — a call carrying an API key routes through the two-argument ConfigureHeaders overload.
+        using var handler = new CapturingHttpMessageHandler(ChatJson);
+        var options = new OpenAICompatibleProviderOptions
+        {
+            BaseUrl = "https://test.example.com/v1/", ApiKey = "fake-api-key", Enabled = true
+        };
+        var provider = new KeyAwareHeaderCustomizingProvider(
+            new HttpClient(handler), options, Catalog(), "test-provider",
+            NullLogger.Instance, ResolverReturning(new RequestCredentials { ApiKey = "resolver-key" }).Object);
+
+        // Act
+        await provider.ChatAsync(SampleRequest());
+
+        // Assert — bespoke headers and the effective key are both applied on the override path.
+        handler.LastRequest!.Headers.GetValues("X-Custom").Should().Equal("custom-value");
+        handler.LastRequest!.Headers.Authorization!.Parameter.Should().Be("resolver-key");
+    }
+
+    [Fact]
     public async Task ChatAsync_WithRetry_ResolvesCredentialsExactlyOnce()
     {
-        // Arrange — 429 then 200 forces one retry; the resolver must not be re-consulted mid-flight.
+        // Arrange — 429 then 200 forces one retry; the resolver must not be re-consulted mid-flight,
+        // and both attempts must go out with the credentials resolved for the original call.
         using var handler = new ScriptedStatusHttpMessageHandler(
             ChatJson, System.Net.HttpStatusCode.TooManyRequests, System.Net.HttpStatusCode.OK);
         var options = new OpenAICompatibleProviderOptions
@@ -259,6 +281,7 @@ public class CredentialResolverTests
         // Assert
         response.Content.Should().Be("hi");
         handler.CallCount.Should().Be(2);
+        handler.AuthorizationValues.Should().Equal("resolver-key", "resolver-key");
         resolver.Verify(
             r => r.ResolveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once);

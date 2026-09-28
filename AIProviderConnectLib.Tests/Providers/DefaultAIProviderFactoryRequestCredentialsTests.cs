@@ -193,24 +193,31 @@ public class DefaultAIProviderFactoryRequestCredentialsTests
     [Fact]
     public async Task ConcurrentCalls_CarryDistinctAuthorizationHeaders()
     {
-        // Arrange — two DI containers each with its own handler to capture independently.
-        using var handlerA = new CapturingHttpMessageHandler(ChatJson);
-        using var handlerB = new CapturingHttpMessageHandler(ChatJson);
-        var factoryA = BuildFactory(handlerA);
-        var factoryB = BuildFactory(handlerB);
+        // Arrange — both transient providers come from one factory and share one handler, so the
+        // keyed activator and the per-call credential path run under real contention.
+        using var handler = new CapturingHttpMessageHandler(ChatJson);
+        var factory = BuildFactory(handler);
 
-        // Act — build two transient providers with different keys and invoke simultaneously.
-        var providerA = factoryA.GetProvider(
-            "test-provider", new RequestCredentials { ApiKey = "key-aaa" });
-        var providerB = factoryB.GetProvider(
-            "test-provider", new RequestCredentials { ApiKey = "key-bbb" });
+        // Act — two concurrent calls with a different key and a different base URL each.
+        var providerA = factory.GetProvider("test-provider", new RequestCredentials
+        {
+            ApiKey = "key-aaa",
+            BaseUrl = "https://override-a.example.com/v1/"
+        });
+        var providerB = factory.GetProvider("test-provider", new RequestCredentials
+        {
+            ApiKey = "key-bbb",
+            BaseUrl = "https://override-b.example.com/v1/"
+        });
 
         await Task.WhenAll(
             providerA.ChatAsync(ChatRequest()),
             providerB.ChatAsync(ChatRequest()));
 
-        // Assert — no cross-contamination.
-        handlerA.LastRequest!.Headers.Authorization!.Parameter.Should().Be("key-aaa");
-        handlerB.LastRequest!.Headers.Authorization!.Parameter.Should().Be("key-bbb");
+        // Assert — each call hit its own key and host; neither value leaked into the other request.
+        handler.RequestSnapshots.Should().ContainSingle(
+            s => s.Authorization == "key-aaa" && s.Host == "override-a.example.com");
+        handler.RequestSnapshots.Should().ContainSingle(
+            s => s.Authorization == "key-bbb" && s.Host == "override-b.example.com");
     }
 }

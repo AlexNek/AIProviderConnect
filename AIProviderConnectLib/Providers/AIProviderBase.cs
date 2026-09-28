@@ -187,6 +187,8 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
     /// <paramref name="credentials"/>: <see cref="AIProviderOptions.Enabled"/>, the effective base URL,
     /// and — when <see cref="RequiresApiKey"/> is true — the effective API key. A provider configured
     /// with an empty key can complete a call once an override supplies one.
+    /// Call sites invoke it before the model is resolved, so a disabled or unconfigured provider
+    /// surfaces the actionable configuration error instead of <see cref="AiErrorCodes.InvalidRequest"/>.
     /// </summary>
     protected void EnsureProviderEnabled(RequestCredentials? credentials)
     {

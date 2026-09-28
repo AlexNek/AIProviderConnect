@@ -134,9 +134,20 @@ never mutated. Each call to `GetProvider(id, overrides)` builds a fresh
 provider — safe under concurrency with no cross-contamination.
 
 The transient instance honors `overrides.ApiKey`, `overrides.BaseUrl`, and
-`overrides.Model` for all transport operations (chat, streaming, model
-discovery, and embeddings). Cast the result to `IEmbeddingProvider` or
-`IStreamingChatProvider` to access optional capabilities.
+`overrides.Model` for every transport the underlying provider type supports
+(chat, streaming, model discovery, and embeddings). Cast the result to
+`IEmbeddingProvider` or `IStreamingChatProvider` to access optional
+capabilities.
+
+!!! note "Known limitation — model-override decoration hides embeddings"
+    When consumer-supplied model overrides are registered for a provider id
+    (see [Consumer-Supplied Overrides](../model-discovery/model-discovery.md#consumer-supplied-overrides)),
+    the transient instance is wrapped in the same decorator `GetProvider(id)`
+    applies, and the decorators expose `IAIProvider`, model discovery, and
+    streaming only — they do not implement `IEmbeddingProvider`. A provider id
+    with model-override entries therefore exposes no embeddings through either
+    `GetProvider` overload. This capability loss predates runtime credentials;
+    the factory overload neither introduces nor widens it.
 
 ## Shared HttpClient Expectation
 

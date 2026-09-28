@@ -47,6 +47,7 @@ public sealed class MessagesApiProvider : AIProviderBase, IStreamingChatProvider
         CancellationToken cancellationToken = default)
     {
         var credentials = await ResolveCredentialsAsync(cancellationToken);
+        EnsureProviderEnabled(credentials);
         var requestWithModel = request with { Model = ResolveChatModel(request, credentials) };
         return await SendChatAndParseAsync(
             HttpMethod.Post, _options.MessagesEndpoint,
@@ -75,9 +76,9 @@ public sealed class MessagesApiProvider : AIProviderBase, IStreamingChatProvider
         CancellationToken cancellationToken = default)
     {
         var credentials = await ResolveCredentialsAsync(cancellationToken);
+        EnsureProviderEnabled(credentials);
         var requestWithModel = request with { Model = ResolveChatModel(request, credentials) };
         var apiKey = EffectiveApiKey(Options, credentials);
-        EnsureProviderEnabled(credentials);
 
         using var httpRequest = BuildRequest(
             _options, EffectiveBaseUrl(Options, credentials), apiKey, HttpMethod.Post, _options.MessagesEndpoint,

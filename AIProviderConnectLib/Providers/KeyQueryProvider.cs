@@ -42,6 +42,7 @@ public sealed class KeyQueryProvider : AIProviderBase, IStreamingChatProvider
         CancellationToken cancellationToken = default)
     {
         var credentials = await ResolveCredentialsAsync(cancellationToken);
+        EnsureProviderEnabled(credentials);
         // Copy with the effective model BEFORE the {model} endpoint template is interpolated and before
         // the model is handed to the parser, so the URL, the body, and the parser name the same model.
         var requestWithModel = request with { Model = ResolveChatModel(request, credentials) };
@@ -73,9 +74,9 @@ public sealed class KeyQueryProvider : AIProviderBase, IStreamingChatProvider
         CancellationToken cancellationToken = default)
     {
         var credentials = await ResolveCredentialsAsync(cancellationToken);
+        EnsureProviderEnabled(credentials);
         var requestWithModel = request with { Model = ResolveChatModel(request, credentials) };
         var apiKey = EffectiveApiKey(Options, credentials);
-        EnsureProviderEnabled(credentials);
 
         var endpoint =
             _options.StreamEndpoint.Replace("{model}", Uri.EscapeDataString(requestWithModel.Model)) + "?alt=sse";

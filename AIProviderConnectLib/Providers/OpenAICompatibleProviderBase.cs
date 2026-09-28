@@ -77,6 +77,7 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
         ChatCompletionRequest request, CancellationToken cancellationToken = default)
     {
         var credentials = await ResolveCredentialsAsync(cancellationToken);
+        EnsureProviderEnabled(credentials);
         var requestWithModel = request with { Model = ResolveChatModel(request, credentials) };
         return await SendChatAndParseAsync(
             HttpMethod.Post, ChatEndpoint,
@@ -104,9 +105,9 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
         ChatCompletionRequest request, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var credentials = await ResolveCredentialsAsync(cancellationToken);
+        EnsureProviderEnabled(credentials);
         var requestWithModel = request with { Model = ResolveChatModel(request, credentials) };
         var apiKey = EffectiveApiKey(Options, credentials);
-        EnsureProviderEnabled(credentials);
         using var httpRequest = BuildRequest(
             Options, EffectiveBaseUrl(Options, credentials), apiKey, HttpMethod.Post, ChatEndpoint,
             OpenAICompatibleWireProtocol.MapRequest(requestWithModel, stream: true),
@@ -136,6 +137,7 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
         EmbeddingRequest request, CancellationToken cancellationToken = default)
     {
         var credentials = await ResolveCredentialsAsync(cancellationToken);
+        EnsureProviderEnabled(credentials);
         ValidateEmbeddingRequest(request);
         var model = ResolveEmbeddingModel(request.Model, credentials);
         var requestWithModel = request with { Model = model };

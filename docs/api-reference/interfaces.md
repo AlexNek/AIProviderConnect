@@ -125,7 +125,7 @@ public interface IAIProviderFactory
 | Member | Description |
 | --- | --- |
 | `GetProvider(providerId)` | Returns the shared keyed `IAIProvider` singleton configured from DI options |
-| `GetProvider(providerId, overrides)` | Returns a **transient** provider bound to the supplied `RequestCredentials`; `FixedCredentials` take priority over any `ICredentialResolver` and over configured options, and the singleton is left unchanged |
+| `GetProvider(providerId, overrides)` | Returns a **transient** provider bound to the supplied `RequestCredentials`; `FixedCredentials` take priority over any `ICredentialResolver` and over configured options, and the singleton is left unchanged. A provider id with model-override entries is decorated and therefore exposes no embeddings through either overload (see [Runtime Credentials](../concepts/runtime-credentials.md)) |
 
 ## ICredentialResolver
 
