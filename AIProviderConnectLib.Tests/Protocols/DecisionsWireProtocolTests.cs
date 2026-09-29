@@ -178,6 +178,27 @@ public class DecisionsWireProtocolTests
     }
 
     [Fact]
+    public void MapRequest_ScoreWith11Levels_ThrowsConfigurationError()
+    {
+        // Arrange — Score requires 2–10 levels; eleven levels exceeds the limit.
+        var request = new DecisionRequest
+        {
+            Model = "m",
+            State = "text",
+            Questions = new Dictionary<string, DecisionQuestion>
+            {
+                ["q"] = new() { Kind = EDecisionQuestionKind.Score, Scale = ["a","b","c","d","e","f","g","h","i","j","k"] }
+            }
+        };
+
+        // Act
+        var act = () => DecisionsWireProtocol.MapRequest(request);
+
+        // Assert
+        act.Should().Throw<AiException>().Which.Code.Should().Be(AiErrorCodes.ConfigurationError);
+    }
+
+    [Fact]
     public void MapRequest_UnsupportedStateShape_ThrowsConfigurationError()
     {
         // Arrange — an int is not one of the documented state shapes.
@@ -308,6 +329,25 @@ public class DecisionsWireProtocolTests
         response.Usage.CompletionTokens.Should().Be(12);
         response.Usage.TotalTokens.Should().Be(42);
         response.Usage.Cost.Should().BeNull();
+    }
+
+    [Fact]
+    public void MapRequest_ArrayOfTextState_IsAllowed()
+    {
+        // Arrange
+        IReadOnlyList<string> state = new List<string> { "text1", "text2" };
+        var request = ChoiceRequest(state);
+
+        // Act
+        var body = JsonSerializer.Serialize(DecisionsWireProtocol.MapRequest(request));
+
+        // Assert
+        using var doc = JsonDocument.Parse(body);
+        var arr = doc.RootElement.GetProperty("state");
+        arr.ValueKind.Should().Be(JsonValueKind.Array);
+        arr.GetArrayLength().Should().Be(2);
+        arr[0].GetString().Should().Be("text1");
+        arr[1].GetString().Should().Be("text2");
     }
 
     [Fact]

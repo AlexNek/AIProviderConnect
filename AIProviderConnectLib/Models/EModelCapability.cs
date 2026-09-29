@@ -40,5 +40,9 @@ public enum EModelCapability
     VideoGeneration = 1 << 12,
 
     // --- Decision ---
+
+    /// <summary>
+    /// Marks a model that answers with typed decisions (Choice, Noul, Score) rather than generated text.
+    /// </summary>
     Decision = 1 << 13
 }

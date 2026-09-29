@@ -173,6 +173,33 @@ as OpenRouter does. All other protocol parsers leave `Cost` unset.
 Rate limits, cancellation, retry, and network-error classification behave
 exactly as they do for chat — see [Error Handling](../concepts/error-handling.md).
 
+## When to use a decision model
+
+A decision model is a cheap, fast decision layer inside an agent or application
+loop — model routing, tool-call risk gating, auto-mode safety checks, parallel
+multi-question classification about one state. It is used **alongside** a
+generative LLM, not instead of one: the generative model produces content, the
+decision model judges it.
+
+Multiple questions over one state are evaluated in parallel at low marginal
+cost, so a single call can answer "is this safe?", "which tool?", and "how
+urgent?" together.
+
+### Reading answers safely
+
+Confidence is **per question** and not comparable across question kinds — a
+question and its negation need not sum to 1. Tune each threshold per kind.
+Pin a versioned model id (e.g. `jev-1.13.0`) once a threshold is tuned and
+rely on `DecisionResponse.Model` reporting the versioned id that answered.
+
+The context budget is host/model-specific (e.g. 32k state + longest question,
+64k state + all questions on jev-1.13) and an over-budget call fails as a host
+error — the library does not pre-count tokens.
+
+Jev treats state as data, not as hostile input, so a decision-based guard
+belongs alongside deterministic checks. Low-confidence or unanswerable
+questions should escalate to a chat model (fallback).
+
 ## Example: Jev via OpenRouter
 
 The **Jev** decision model (TypeSafe's *System One*, `typesafe/jev-1.13`) is a
@@ -226,3 +253,57 @@ var response = await jevDecision.DecideAsync(request, ct);
     on a different origin than the provider `BaseUrl`, set
     `DecisionsBaseUrl` to a full URL. Both can also be supplied through the
     definition's `protocolConfiguration` (`decisionsEndpoint`, `decisionsBaseUrl`).
+
+## Example: Jev first-party API
+
+The same `DecisionProvider` works against the Jev first-party API — only the
+base URL and endpoint differ. This proves the design is host-neutral:
+
+```csharp
+var jevDirect = new ProviderDefinition
+{
+    Id = "jev-direct",
+    DisplayName = "Jev (first-party)",
+    Protocol = EProviderProtocol.Decision,
+    BaseUrl = "https://thejevai.com/v1/",
+};
+
+services.AddSingleton(new HttpClient());
+services.AddAiProviders(b => b
+    .Add(jevDirect)
+    .Configure<DecisionProviderOptions>("jev-direct", o =>
+    {
+        o.ApiKey = "<your-typesafe-key>";
+        o.DefaultModel = "jev-latest";
+        // The first-party surface lives at /systemone, not alpha/decisions.
+        o.DecisionsEndpoint = "systemone";
+    })
+    .OverrideModels("jev-direct",
+    [
+        new ModelOverride
+        {
+            Id = "jev-latest",
+            DisplayName = "Jev (System One)",
+            Capabilities = EModelCapability.Decision,
+        },
+    ]));
+```
+
+The only differences from the OpenRouter example are the `BaseUrl`, the
+`DecisionsEndpoint`, and the model id — the same `IDecisionProvider`, the
+same request/response shapes, the same typed answers.
+
+## References
+
+- [OpenRouter Jev hub](https://openrouter.ai/docs/guides/community/jev)
+- [Jev tutorial](https://openrouter.ai/docs/guides/community/jev-tutorial)
+- [Decisions API reference](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-questions-and-answers-request)
+- [Jev model page](https://openrouter.ai/typesafe/jev-1.13)
+- [TypeSafe docs](https://docs.typesafe.ai) (System One, Primitives, Confidence)
+- [LangChain — Building a Harness with Jev](https://www.langchain.com/blog/building-a-harness-with-jev) — third-party prior art; its provider-agnostic `TypeSafeClassifier` mirrors this library's host-neutral `IDecisionProvider`
+- [Pydantic AI TypeSafe integration](https://pydantic.dev/docs/ai/models/typesafe/) — a second host-neutral `DecisionModel`, and the source for the 255-option / 10-level hard limits and the no-sampling-knob behavior
+- [Hugging Face — How to use the Jev AI model](https://huggingface.co/blog/sora-2/how-to-use-the-jev-ai-model-a-step-by-step-develop) — developer walkthrough for the first-party API
+
+This host is an example only. Any decisions-compatible host plugs in the same
+way — change the `BaseUrl` and `DecisionsEndpoint`, keep the same
+`IDecisionProvider` contract.

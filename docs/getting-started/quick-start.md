@@ -76,7 +76,7 @@ public class MyService(IAIProviderFactory factory)
 ## 4. Streaming
 
 Providers that stream implement `IStreamingChatProvider` — all four
-implementations do:
+chat-family implementations do (`DecisionProvider` is not a chat provider):
 
 ```csharp
 if (provider is IStreamingChatProvider streaming)

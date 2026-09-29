@@ -112,6 +112,7 @@ public class DecisionProviderTests
         var response = await provider.DecideAsync(Request());
 
         // Assert
+        handler.LastRequest!.Headers.Authorization!.Scheme.Should().Be("Bearer");
         handler.LastRequest!.Headers.Authorization!.Parameter.Should().Be("fake-api-key");
         handler.LastRequest.RequestUri!.AbsoluteUri
             .Should().Be("https://openrouter.example.com/api/alpha/decisions");
@@ -164,12 +165,16 @@ public class DecisionProviderTests
             .Should().Be("https://decisions.example.com/alpha/decisions");
     }
 
-    [Fact]
-    public async Task DecideAsync_ErrorStatus_IsClassified()
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest, AiErrorCodes.InvalidRequest)]
+    [InlineData(HttpStatusCode.Unauthorized, AiErrorCodes.Unauthorized)]
+    [InlineData(HttpStatusCode.NotFound, AiErrorCodes.EndpointNotFound)]
+    [InlineData(HttpStatusCode.TooManyRequests, AiErrorCodes.RateLimited)]
+    public async Task DecideAsync_ErrorStatus_IsClassified(HttpStatusCode status, string expectedCode)
     {
         // Arrange
         using var handler = new ScriptedStatusHttpMessageHandler(
-            """{"error":{"message":"bad"}}""", HttpStatusCode.BadRequest);
+            """{"error":{"message":"err"}}""", status);
         var options = new DecisionProviderOptions
         {
             BaseUrl = "https://openrouter.example.com/api/",
@@ -185,7 +190,7 @@ public class DecisionProviderTests
 
         // Assert
         (await act.Should().ThrowAsync<AiException>())
-            .Which.Code.Should().Be(AiErrorCodes.InvalidRequest);
+            .Which.Code.Should().Be(expectedCode);
     }
 
     [Fact]
@@ -199,5 +204,20 @@ public class DecisionProviderTests
 
         // Assert
         provider.SupportsModelDiscovery.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetModelsAsync_ThrowsModelDiscoveryNotSupported()
+    {
+        // Arrange
+        using var handler = new CapturingHttpMessageHandler(DecisionResponseJson);
+        var provider = CreateProvider(handler);
+
+        // Act
+        var act = () => provider.GetModelsAsync(CancellationToken.None);
+
+        // Assert
+        (await act.Should().ThrowAsync<AiException>())
+            .Which.Code.Should().Be(AiErrorCodes.ModelDiscoveryNotSupported);
     }
 }

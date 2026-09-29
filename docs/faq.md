@@ -34,7 +34,7 @@ has `hasModelDiscoveryApi: false` throw `AiException` with code
 
 ## Does streaming work for every provider?
 
-All four provider implementations implement `IStreamingChatProvider`, so
+All four chat-family provider implementations implement `IStreamingChatProvider`, so
 `StreamAsync` is always callable — but whether the backend actually serves
 SSE depends on the service. Check `provider is IStreamingChatProvider`
 before calling `StreamAsync`; fall back to `ChatAsync` where streaming is

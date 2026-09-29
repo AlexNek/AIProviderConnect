@@ -35,11 +35,11 @@ All public types live in the `AIProviderConnect.*` namespaces
 
 | Folder | Contents |
 | --- | --- |
-| `Abstractions/` | `IAIProvider`, `IStreamingChatProvider`, `IModelDiscoveryProvider`, `IProviderCatalog`, `IAIProviderFactory` |
+| `Abstractions/` | `IAIProvider`, `IStreamingChatProvider`, `IModelDiscoveryProvider`, `IEmbeddingProvider`, `IDecisionProvider`, `IProviderCatalog`, `IAIProviderFactory` |
 | `Models/` | Request/response, message, tool, streaming, and catalog models |
 | `Options/` | Per-protocol configuration classes |
 | `Protocols/` | Wire protocol mappers: OpenAI-compatible, Messages API, KeyQuery, and Catalog |
-| `Providers/` | `AIProviderBase` plus four provider implementations |
+| `Providers/` | `AIProviderBase` plus five provider implementations |
 | `Services/` | `ProviderCatalog` — embedded JSON provider definitions |
 | `DependencyInjection/` | `AddAiProviders()` extension method |
 
