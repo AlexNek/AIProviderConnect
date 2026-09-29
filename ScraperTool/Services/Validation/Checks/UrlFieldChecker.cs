@@ -238,8 +238,15 @@ public sealed class UrlFieldChecker : IUrlFieldChecker
             }
         }
 
-        // baseUrl: verify it's an actual API endpoint, not a web page.
-        if (field == ProviderJsonFields.BaseUrl && httpStatus >= 200 && httpStatus < 300)
+        // baseUrl — and per-operation endpoint overrides under 'endpoints.<op>.path' —
+        // must serve an actual API surface, not a web page. The 404 models-endpoint
+        // fallback below stays exclusive to the root baseUrl.
+        var isApiSurface = field == ProviderJsonFields.BaseUrl
+                           || field.StartsWith(
+                               ProviderJsonFields.Endpoints + ".",
+                               StringComparison.OrdinalIgnoreCase);
+
+        if (isApiSurface && httpStatus >= 200 && httpStatus < 300)
         {
             var (verdict, apiReason) = await _apiEndpointProbe.ProbeIsApiEndpointAsync(url, ct);
 
@@ -247,15 +254,15 @@ public sealed class UrlFieldChecker : IUrlFieldChecker
             {
                 sink.FailWith(fileName, field, url,
                     ValidationIssueCodes.BaseUrlNotApiEndpoint,
-                    $"Field 'baseUrl' {apiReason} — not an API endpoint: {url}",
-                    $"baseUrl {apiReason} — not an API endpoint");
+                    $"Field '{field}' {apiReason} — not an API endpoint: {url}",
+                    $"{field} {apiReason} — not an API endpoint");
                 return;
             }
 
             if (verdict == EApiProbeVerdict.NotEvaluated)
             {
                 sink.Pass(fileName, field, url,
-                    $"baseUrl could not be evaluated ({apiReason}) — stored value kept");
+                    $"{field} could not be evaluated ({apiReason}) — stored value kept");
                 return;
             }
         }

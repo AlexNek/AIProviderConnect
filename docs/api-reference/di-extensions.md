@@ -44,6 +44,33 @@ missing base URL, or a duplicate id throws `ArgumentException`. A
 `Native`-protocol definition with no `AddProvider` registration throws
 `InvalidOperationException`.
 
+## Endpoint Folding and Class Selection
+
+Before the protocol switch runs, each definition's `endpoints` block is
+validated and folded into the named options (see
+[Wire Protocols](../concepts/wire-protocols.md#per-operation-endpoint-overrides)
+for the precedence chain and the rejection matrix). Registration fails fast
+with `AiException` (`ai/configuration-error`) for an unknown operation key,
+an entry that changes nothing, an empty or absolute `path`, a non-HTTPS
+`baseUrl`, a `chat` entry on a KeyQuery provider without a `{model}`
+placeholder, or a `decisions` override the root protocol cannot serve.
+
+When an `OpenAICompatible` or `HybridGateway` definition declares a
+`decisions` entry with `protocol: "decision"`, registration selects the
+combined `OpenAICompatibleDecisionProvider` (chat, streaming, model
+discovery, embeddings, and decisions under one id) and seeds its
+`DecisionsEndpoint`/`DecisionsBaseUrl` from the entry. This is the one
+exception to "one `IAIProvider` singleton per catalog entry with a concrete
+type chosen from the definition's wire protocol" — the id still holds one
+singleton, but its type serves two wire protocols.
+
+The model-override decorator chain stays capability-transparent: a provider
+id with override entries that is streaming **and** decision-capable is
+wrapped in a decorator that forwards both, so
+`is IDecisionProvider` keeps matching after decoration. Streaming-only ids
+keep the streaming decorator, and non-streaming decision providers keep the
+decision decorator.
+
 ## Options Reference
 
 All options classes live in `AIProviderConnect.Options` and derive from

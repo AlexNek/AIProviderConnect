@@ -370,4 +370,26 @@ public class DecisionsWireProtocolTests
         options.DecisionsEndpoint.Should().Be("custom/decisions");
         options.DecisionsBaseUrl.Should().Be("https://decisions.example.com/");
     }
+
+    [Fact]
+    public void ApplyProtocolConfiguration_AppliesToOpenAICompatibleOptionsThroughSeam()
+    {
+        // Arrange — the seam lets the same protocolConfiguration keys drive
+        // OpenAICompatibleProviderOptions, as required by rule 6.
+        var options = new OpenAICompatibleProviderOptions
+        {
+            ProtocolConfiguration = new Dictionary<string, string>
+            {
+                ["decisionsEndpoint"] = "custom/decisions",
+                ["decisionsBaseUrl"] = "https://decisions.example.com/"
+            }
+        };
+
+        // Act
+        DecisionsWireProtocol.ApplyProtocolConfiguration(options);
+
+        // Assert
+        options.DecisionsEndpoint.Should().Be("custom/decisions");
+        options.DecisionsBaseUrl.Should().Be("https://decisions.example.com/");
+    }
 }

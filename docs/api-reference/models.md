@@ -198,6 +198,30 @@ the record is safe to log. See [Runtime Credentials](../concepts/runtime-credent
 
 ## Catalog Models
 
+See [Provider Catalog](../concepts/provider-catalog.md) for how definitions load.
+
+### EndpointDefinition
+
+One entry of the optional per-operation `endpoints` block on a
+`ProviderDefinition`. Every member is optional and omitted from the written
+JSON when unset.
+
+| Property | Type | JSON | Description |
+| --- | --- | --- | --- |
+| `Path` | `string?` | `path` | Relative path resolved against the effective base URL |
+| `BaseUrl` | `string?` | `baseUrl` | Override used only when the surface sits on a different root than the definition's common base |
+| `Protocol` | `EProviderProtocol?` | `protocol` | Override for an operation served with a different wire protocol; absent means inherit |
+
+`Protocol` deserializes through `EProviderProtocolNullableJsonConverter`:
+the same case-insensitive alias vocabulary as the root `protocol` field, but
+a JSON `null` (or an absent member) deserializes to `null` instead of
+throwing, and an unknown token still throws `JsonException`.
+
+Operation keys come from `EndpointOperations` (`Chat`, `Models`, `Messages`,
+`Embeddings`, `Decisions`); `EndpointOperations.Find(dictionary, operation)`
+is the case-insensitive lookup every consumer should use instead of indexing
+the dictionary directly.
+
 ### ProviderDefinition
 
 Immutable record loaded from embedded JSON — full field list in

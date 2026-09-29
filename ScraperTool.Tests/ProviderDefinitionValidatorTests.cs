@@ -822,6 +822,97 @@ public class ProviderDefinitionValidatorTests
             && (p.ResultMessage ?? string.Empty).Contains("stored value kept"));
     }
 
+    [Fact]
+    public async Task ValidateFileAsync_DecisionsEntryWithOverride_IsCheckedUnderItsOperationLabel()
+    {
+        // Arrange — the entry's baseUrl override is the surface being probed; a 200 with
+        // an HTML body is the root baseUrl's not-API verdict, under the per-operation
+        // field label so the finding flows through sidecar and AI-fix like any root field.
+        var handler = new StubApiProbeHandler(HttpStatusCode.OK, "text/html", "<html><body>Pricing plans</body></html>");
+
+        var issues = await ValidateDefinitionWithEndpointsAsync(
+            "https://api.test.example.com/v1/",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["decisions"] = "https://override.test.example.com/api/"
+            },
+            handler);
+
+        var issue = issues.Single(i =>
+            i.Code == ValidationIssueCodes.BaseUrlNotApiEndpoint
+            && i.Field == "endpoints.decisions.path");
+        issue.Message.Should().Contain("returns an HTML page");
+        handler.RequestedUrls.Should().Contain("https://override.test.example.com/api/alpha/decisions");
+    }
+
+    [Fact]
+    public async Task ValidateFileAsync_DecisionsEntryWithoutOverride_IsCheckedAgainstCommonBase()
+    {
+        // Arrange — no baseUrl override: the definition's common base composes the URL.
+        var handler = new StubApiProbeHandler(HttpStatusCode.OK, "text/plain", "not a page");
+
+        var issues = await ValidateDefinitionWithEndpointsAsync(
+            "https://api.test.example.com/v1/",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["decisions"] = ""
+            },
+            handler);
+
+        issues.Should().NotContain(i => i.Field == "endpoints.decisions.path" && i.Code == "UrlError");
+        handler.RequestedUrls.Should().Contain("https://api.test.example.com/v1/alpha/decisions");
+    }
+
+    /// <summary>
+    /// Validates a definition whose baseUrl is <paramref name="baseUrl"/> and whose
+    /// endpoints block carries a decisions entry using the optional per-entry baseUrl
+    /// override (null-or-empty means inherit the common base).
+    /// </summary>
+    private static async Task<List<ValidationIssue>> ValidateDefinitionWithEndpointsAsync(
+        string baseUrl,
+        Dictionary<string, string> decisionsBaseUrls,
+        HttpMessageHandler handler)
+    {
+        var json = SerializeManifest(
+            new AIProviderConnect.Models.ProviderDefinition
+                {
+                    Id = "test",
+                    DisplayName = "Test",
+                    Protocol = AIProviderConnect.Models.EProviderProtocol.OpenAICompatible,
+                    BaseUrl = baseUrl,
+                    Endpoints = decisionsBaseUrls.ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => new AIProviderConnect.Models.EndpointDefinition
+                            {
+                                Path = "alpha/decisions",
+                                BaseUrl = string.IsNullOrWhiteSpace(kvp.Value) ? null : kvp.Value,
+                                Protocol = AIProviderConnect.Models.EProviderProtocol.Decision
+                            },
+                        StringComparer.OrdinalIgnoreCase)
+                },
+            new AIProviderConnect.Models.ProviderResearchMetadata
+                {
+                    Website = "https://test.example.com",
+                    LoginUrl = "https://test.example.com/login",
+                    ApiPricingUrl = "https://test.example.com/pricing",
+                    DocumentationUrl = "https://test.example.com/docs",
+                    SubscriptionPricingUrl = ProviderJsonFields.NotApplicable,
+                    MinModelCount = 1
+                });
+
+        var tempFile = Path.Combine(Path.GetTempPath(), $"validator-endpoints-{Guid.NewGuid():N}.json");
+        File.WriteAllText(tempFile, json);
+
+        try
+        {
+            return await CreateValidator(httpHandler: handler).ValidateFileAsync(tempFile);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
     /// <summary>
     /// Serializes the runtime definition and its research metadata into the single flat manifest
     /// shape the on-disk provider JSON uses, which is what the validator reads.

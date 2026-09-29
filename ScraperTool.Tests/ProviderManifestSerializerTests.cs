@@ -105,4 +105,45 @@ public class ProviderManifestSerializerTests
         result1.Should().NotBeSameAs(result2);
         result1["id"]!.GetValue<string>().Should().Be(result2["id"]!.GetValue<string>());
     }
+
+    [Fact]
+    public void Flatten_WithEndpoints_RoundTripsThroughDefinition()
+    {
+        // Arrange — the manual editor's save path: Flatten serializes the definition
+        // record, so a carried endpoints block must write through and survive a
+        // ProviderDefinition round-trip.
+        var definition = CreateDefinition() with
+        {
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["decisions"] = new EndpointDefinition
+                {
+                    Path = "alpha/decisions",
+                    BaseUrl = "https://api.test.example.com/api/",
+                    Protocol = EProviderProtocol.Decision
+                }
+            }
+        };
+
+        // Act
+        var flattened = ProviderManifestSerializer.Flatten(definition, CreateResearch());
+        var json = flattened.ToJsonString();
+        var roundTripped = System.Text.Json.JsonSerializer.Deserialize<ProviderDefinition>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        // Assert
+        var entry = roundTripped!.Endpoints!["decisions"]!;
+        entry.Path.Should().Be("alpha/decisions");
+        entry.BaseUrl.Should().Be("https://api.test.example.com/api/");
+        entry.Protocol.Should().Be(EProviderProtocol.Decision);
+    }
+
+    [Fact]
+    public void Flatten_WithoutEndpoints_WritesNoEndpointsMember()
+    {
+        // Arrange & Act
+        var flattened = ProviderManifestSerializer.Flatten(CreateDefinition(), CreateResearch());
+
+        // Assert
+        flattened.ContainsKey("endpoints").Should().BeFalse();
+    }
 }

@@ -39,6 +39,14 @@ public static IServiceCollection AddAiProviders(
    | `Catalog` | `ModelCatalogProvider` | `OpenAICompatibleProviderOptions` |
    | `HybridGateway` | `OpenAICompatibleProvider` | `HybridGatewayProviderOptions` |
 
+   One exception: an `OpenAICompatible` or `HybridGateway` definition whose
+   `endpoints` block declares a `decisions` entry with `protocol: "decision"`
+   registers the combined `OpenAICompatibleDecisionProvider` — a single id
+   that serves chat, streaming, model discovery, embeddings, **and** decisions
+   over one transport. See [Wire Protocols](../concepts/wire-protocols.md#per-operation-endpoint-overrides)
+   for the `endpoints` shape and its precedence chain; registration-time
+   validation rejects a malformed entry before any provider is built.
+
 3. **Named options per provider.** For each provider ID the matching options
    class is registered under that name with option defaults seeded from the
    catalog definition, so the provider can look up its catalog definition.

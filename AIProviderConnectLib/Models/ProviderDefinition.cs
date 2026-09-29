@@ -59,6 +59,15 @@ public sealed record ProviderDefinition
     public string ModelsEndpoint { get; init; } = EndpointDefaults.Models;
 
     /// <summary>
+    /// Gets the optional per-operation endpoint overrides, keyed by operation
+    /// (see <see cref="Constants.EndpointOperations"/>). A definition without the block
+    /// behaves exactly as it does without it.
+    /// </summary>
+    [JsonPropertyName("endpoints")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, EndpointDefinition>? Endpoints { get; init; }
+
+    /// <summary>
     /// Gets the wire protocol used by this provider.
     /// Deserialized from JSON string via <see cref="EProviderProtocolJsonConverter"/>.
     /// </summary>

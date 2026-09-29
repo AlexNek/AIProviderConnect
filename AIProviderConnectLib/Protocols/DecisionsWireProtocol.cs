@@ -24,20 +24,21 @@ public static class DecisionsWireProtocol
 
     /// <summary>
     /// Applies protocol-specific configuration from the options' ProtocolConfiguration dictionary to
-    /// the typed <see cref="DecisionProviderOptions"/>. Key names are defined and used only here.
+    /// the typed options. Key names are defined and used only here.
     /// </summary>
-    public static void ApplyProtocolConfiguration(DecisionProviderOptions options)
+    internal static void ApplyProtocolConfiguration(IDecisionsEndpointOptions options)
     {
-        if (options.ProtocolConfiguration is null)
+        // All seam implementers derive from AIProviderOptions, which carries ProtocolConfiguration.
+        if (options is not AIProviderOptions aiOptions || aiOptions.ProtocolConfiguration is null)
             return;
 
-        if (options.ProtocolConfiguration.TryGetValue(DecisionsEndpointKey, out var endpoint)
+        if (aiOptions.ProtocolConfiguration.TryGetValue(DecisionsEndpointKey, out var endpoint)
             && !string.IsNullOrWhiteSpace(endpoint))
         {
             options.DecisionsEndpoint = endpoint;
         }
 
-        if (options.ProtocolConfiguration.TryGetValue(DecisionsBaseUrlKey, out var baseUrl)
+        if (aiOptions.ProtocolConfiguration.TryGetValue(DecisionsBaseUrlKey, out var baseUrl)
             && !string.IsNullOrWhiteSpace(baseUrl))
         {
             options.DecisionsBaseUrl = baseUrl;
@@ -84,14 +85,26 @@ public static class DecisionsWireProtocol
     private static void ValidateStateShape(object state)
     {
         var isDocumentedShape = state is string
-            || state is IReadOnlyDictionary<string, object?>
-            || state is IReadOnlyList<string>;
+            || state is IReadOnlyList<string>
+            || (state is JsonElement je && IsAllowedJsonElementKind(je))
+            || IsStringKeyedReadOnlyDictionary(state);
 
         if (!isDocumentedShape)
             throw new AiException(
                 AiErrorCodes.ConfigurationError,
-                "Decision request state must be a text string, a JSON object " +
-                "(IReadOnlyDictionary<string, object?>), or an array of text (IReadOnlyList<string>).");
+                "Decision request state must be a text string, a JSON object, " +
+                "a JSON array, or an array of text.");
+    }
+
+    private static bool IsAllowedJsonElementKind(JsonElement element) =>
+        element.ValueKind is JsonValueKind.Object or JsonValueKind.Array or JsonValueKind.String;
+
+    private static bool IsStringKeyedReadOnlyDictionary(object state)
+    {
+        return state.GetType().GetInterfaces().Any(i =>
+            i.IsGenericType &&
+            i.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>) &&
+            i.GetGenericArguments()[0] == typeof(string));
     }
 
     private static object MapQuestion(string name, DecisionQuestion question)

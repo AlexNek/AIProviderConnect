@@ -10,6 +10,7 @@ public static class ProviderJsonFields
     public const string ChatEndpoint = "chatEndpoint";
     public const string DisplayName = "displayName";
     public const string DocumentationUrl = "documentationUrl";
+    public const string Endpoints = "endpoints";
     public const string HasFreeTier = "hasFreeTier";
     public const string HasModelDiscoveryApi = "hasModelDiscoveryApi";
     public const string Id = "id";

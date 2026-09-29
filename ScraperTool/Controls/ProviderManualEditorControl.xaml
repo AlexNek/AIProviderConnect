@@ -264,16 +264,22 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,12,0">
                                 <Label Content="_Chat endpoint" Target="{Binding ElementName=ChatEndpointTextBox}" Padding="0,0,0,2" />
                                 <TextBox x:Name="ChatEndpointTextBox" Text="{Binding ChatEndpoint, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="Relative path appended to Base URL for chat completion requests." />
                             </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                            <StackPanel Grid.Column="1" Margin="0,0,12,0">
                                 <Label Content="_Models endpoint" Target="{Binding ElementName=ModelsEndpointTextBox}" Padding="0,0,0,2" />
                                 <TextBox x:Name="ModelsEndpointTextBox" Text="{Binding ModelsEndpoint, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="Relative path appended to Base URL to list available models." />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Margin="12,0,0,0">
+                                <Label Content="_Messages endpoint" Target="{Binding ElementName=MessagesEndpointTextBox}" Padding="0,0,0,2" />
+                                <TextBox x:Name="MessagesEndpointTextBox" Text="{Binding MessagesEndpoint, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="Relative path for Messages API (Anthropic wire) requests; only used by MessagesApi-protocol providers." />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -286,6 +292,15 @@
                         AddCommand="{Binding AddProtocolConfigEntryCommand}"
                         RemoveCommand="{Binding RemoveProtocolConfigEntryCommand}"
                         Visibility="{Binding HasProtocolKeys, Converter={StaticResource BoolToVis}}"
+                        Margin="0,0,0,16" />
+
+                    <!-- Endpoint Overrides -->
+                    <controls:EndpointEditorControl
+                        Title="Endpoint Overrides"
+                        Description="Per-operation endpoint overrides. The path is resolved against the common base URL; a base-URL override is only for a surface on another root; an empty protocol inherits the definition's protocol."
+ItemsSource="{Binding EndpointConfiguration}"
+                        AddCommand="{Binding AddEndpointConfigEntryCommand}"
+                        RemoveCommand="{Binding RemoveEndpointConfigEntryCommand}"
                         Margin="0,0,0,16" />
 
                     <!-- Discovery -->

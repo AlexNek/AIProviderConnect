@@ -273,7 +273,7 @@ services.AddAiProviders(b => b
     .Add(jevDirect)
     .Configure<DecisionProviderOptions>("jev-direct", o =>
     {
-        o.ApiKey = "<your-typesafe-key>";
+        o.ApiKey = "<your-thejevai-key>";
         o.DefaultModel = "jev-latest";
         // The first-party surface lives at /systemone, not alpha/decisions.
         o.DecisionsEndpoint = "systemone";
@@ -292,6 +292,54 @@ services.AddAiProviders(b => b
 The only differences from the OpenRouter example are the `BaseUrl`, the
 `DecisionsEndpoint`, and the model id — the same `IDecisionProvider`, the
 same request/response shapes, the same typed answers.
+
+## Single-id registration via `endpoints`
+
+When a chat-capable host also serves decisions, the definition can carry the
+decisions surface in its `endpoints` block instead of splitting into a
+dedicated `*-decisions` id. Jev via OpenRouter now needs one id:
+
+```csharp
+var openrouter = new ProviderDefinition
+{
+    Id = "openrouter",
+    DisplayName = "OpenRouter",
+    Protocol = EProviderProtocol.OpenAICompatible,
+    BaseUrl = "https://openrouter.ai/api/v1/",
+    Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+    {
+        // The decisions surface sits on /api/, not under /api/v1/ — hence the
+        // baseUrl override; the protocol override is what selects the combined
+        // provider class at registration time.
+        ["decisions"] = new EndpointDefinition
+        {
+            Path = "alpha/decisions",
+            BaseUrl = "https://openrouter.ai/api/",
+            Protocol = EProviderProtocol.Decision,
+        },
+    },
+};
+
+services.AddSingleton(new HttpClient());
+services.AddAiProviders(b => b
+    .Add(openrouter)
+    .Configure<OpenAICompatibleProviderOptions>("openrouter", o =>
+    {
+        o.ApiKey = "<your-openrouter-key>";
+        o.DefaultModel = "openai/gpt-4o-mini";
+    }));
+```
+
+The one registered id answers every capability:
+
+```csharp
+var provider = serviceProvider.GetRequiredKeyedService<IAIProvider>("openrouter");
+var chat = await ((IStreamingChatProvider)provider).ChatAsync(chatRequest, ct);
+var decision = await ((IDecisionProvider)provider).DecideAsync(request, ct);
+```
+
+The dedicated-id pattern above remains the choice when the decision host is
+a different service, or when a chat provider must not expose decisions.
 
 ## References
 

@@ -152,6 +152,14 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
 
     public ObservableCollection<ProtocolConfigEntry> ProtocolConfiguration { get; } = [];
 
+    /// <summary>
+    /// Per-operation endpoint override rows backing the definition's <c>endpoints</c> block.
+    /// </summary>
+    public ObservableCollection<EndpointConfigEntry> EndpointConfiguration { get; } = [];
+
+    [ObservableProperty]
+    private string _messagesEndpoint = EndpointDefaults.Messages;
+
     [ObservableProperty]
     private IReadOnlyList<string> _knownProtocolKeys = Array.Empty<string>();
 
@@ -557,6 +565,24 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
             .GroupBy(e => e.Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Last().Value!, StringComparer.OrdinalIgnoreCase);
 
+        var endpoints = EndpointConfiguration
+            .Where(e => !string.IsNullOrWhiteSpace(e.Operation)
+                        && (!string.IsNullOrWhiteSpace(e.Path)
+                            || !string.IsNullOrWhiteSpace(e.BaseUrl)
+                            || !string.IsNullOrWhiteSpace(e.Protocol)))
+            .GroupBy(e => e.Operation.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => new EndpointDefinition
+                        {
+                            Path = NullIfEmpty(g.Last().Path),
+                            BaseUrl = NullIfEmpty(g.Last().BaseUrl),
+                            Protocol = string.IsNullOrWhiteSpace(g.Last().Protocol)
+                                ? null
+                                : ProviderProtocolMapper.FromJson(g.Last().Protocol)
+                        },
+                StringComparer.OrdinalIgnoreCase);
+
         return new ProviderDefinition
                    {
                        Id = SelectedProvider?.ProviderId ?? Id,
@@ -565,11 +591,16 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
                        BaseUrl = BaseUrl,
                        ChatEndpoint = ChatEndpoint,
                        ModelsEndpoint = ModelsEndpoint,
+                       MessagesEndpoint = MessagesEndpoint,
                        Category = Category,
                        HasModelDiscoveryApi = HasModelDiscoveryApi,
-                       ProtocolConfiguration = protocolConfig.Count > 0 ? protocolConfig : null
+                       ProtocolConfiguration = protocolConfig.Count > 0 ? protocolConfig : null,
+                       Endpoints = endpoints.Count > 0 ? endpoints : null
                    };
     }
+
+    private static string? NullIfEmpty(string value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private ProviderResearchMetadata BuildResearchMetadata()
     {
@@ -636,6 +667,7 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
         BaseUrl = string.Empty;
         ChatEndpoint = EndpointDefaults.ChatCompletions;
         ModelsEndpoint = EndpointDefaults.Models;
+        MessagesEndpoint = EndpointDefaults.Messages;
         Category = string.Empty;
         ModelDescription = string.Empty;
         PayAsYouGo = false;
@@ -651,6 +683,24 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
         HasRegionalEndpoints = false;
         IsDirty = false;
         ProtocolConfiguration.Clear();
+        EndpointConfiguration.Clear();
+    }
+
+    [RelayCommand]
+    private void AddEndpointConfigEntry()
+    {
+        EndpointConfiguration.Add(new EndpointConfigEntry());
+        IsDirty = true;
+    }
+
+    [RelayCommand]
+    private void RemoveEndpointConfigEntry(EndpointConfigEntry? entry)
+    {
+        if (entry is not null)
+        {
+            EndpointConfiguration.Remove(entry);
+            IsDirty = true;
+        }
     }
 
     [RelayCommand]
@@ -934,6 +984,8 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
     partial void OnModelDiscoveryNotesChanged(string value) => IsDirty = true;
 
     partial void OnModelsEndpointChanged(string value) => IsDirty = true;
+
+    partial void OnMessagesEndpointChanged(string value) => IsDirty = true;
 
     partial void OnPayAsYouGoChanged(bool value) => IsDirty = true;
 
@@ -1400,6 +1452,7 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
         BaseUrl = def.BaseUrl;
         ChatEndpoint = def.ChatEndpoint;
         ModelsEndpoint = def.ModelsEndpoint;
+        MessagesEndpoint = def.MessagesEndpoint;
         Category = def.Category ?? string.Empty;
         ModelDescription = research?.ModelDescription ?? string.Empty;
         PayAsYouGo = research?.PayAsYouGo ?? false;
@@ -1429,6 +1482,23 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
                                                   Value = kvp.Value,
                                                   KnownKeys = KnownProtocolKeys
                                               });
+            }
+        }
+
+        EndpointConfiguration.Clear();
+        if (def.Endpoints is not null)
+        {
+            foreach (var kvp in def.Endpoints.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                EndpointConfiguration.Add(new EndpointConfigEntry
+                                                 {
+                                                     Operation = kvp.Key,
+                                                     Path = kvp.Value.Path ?? string.Empty,
+                                                     BaseUrl = kvp.Value.BaseUrl ?? string.Empty,
+                                                     Protocol = kvp.Value.Protocol is null
+                                                         ? string.Empty
+                                                         : ProviderProtocolMapper.ToJson(kvp.Value.Protocol.Value)
+                                                 });
             }
         }
     }

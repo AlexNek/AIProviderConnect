@@ -132,6 +132,46 @@ public class AIProviderFactoryTests
         act.Should().Throw<InvalidOperationException>().WithMessage("*nonexistent-provider*");
     }
 
+    [Fact]
+    public async Task GetProvider_WithEndpointsBlock_StillBuildsChatProviderWithUnchangedEndpoints()
+    {
+        // Arrange — rule 17: ScraperTool stays chat-only. An endpoints block (e.g. the
+        // migrated OpenRouter shape) must not change the resolved chat endpoint.
+        _catalogMock.Setup(c => c.Get("openrouter")).Returns(new ProviderDefinition
+        {
+            Id = "openrouter",
+            DisplayName = "OpenRouter",
+            BaseUrl = "https://openrouter.test.example.com/api/v1/",
+            Protocol = EProviderProtocol.OpenAICompatible,
+            HasModelDiscoveryApi = true,
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["decisions"] = new EndpointDefinition
+                {
+                    Path = "alpha/decisions",
+                    BaseUrl = "https://openrouter.test.example.com/api/",
+                    Protocol = EProviderProtocol.Decision
+                }
+            }
+        });
+
+        var factory = new AIProviderFactory(_settings, _httpClientFactoryMock.Object, _catalogMock.Object);
+        var provider = factory.GetProvider("openrouter", "transient-key");
+
+        // Act
+        _handler.EnqueueResponse(ChatResponseJson);
+        await provider.ChatAsync(new ChatCompletionRequest
+        {
+            Model = "m1",
+            Messages = [new ChatMessage { Role = EChatRole.User, Content = "Hi" }]
+        });
+
+        // Assert
+        provider.Should().BeAssignableTo<AIProviderConnect.Providers.OpenAICompatibleProvider>();
+        _handler.LastRequest!.RequestUri!.AbsoluteUri.Should()
+            .Be("https://openrouter.test.example.com/api/v1/chat/completions");
+    }
+
     private sealed class CapturingHttpHandler : HttpMessageHandler
     {
         private readonly Queue<HttpResponseMessage> _responses = new();

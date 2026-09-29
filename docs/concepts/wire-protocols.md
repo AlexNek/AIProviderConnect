@@ -25,6 +25,50 @@ Unknown or empty protocol strings throw `JsonException`.
 `EProviderProtocol.Native` exists in the enum but no catalog entry maps to
 it today.
 
+## Per-Operation Endpoint Overrides
+
+A provider definition may carry an optional `endpoints` block that overrides
+individual operations without changing the wire protocol:
+
+```json
+"endpoints": {
+  "decisions": {
+    "path": "alpha/decisions",
+    "baseUrl": "https://openrouter.ai/api/",
+    "protocol": "decision"
+  }
+}
+```
+
+- `path` — the relative path, always resolved against the effective base URL.
+- `baseUrl` — an override used **only** when the surface genuinely sits on a
+  different root than the definition's common base (OpenRouter serves chat
+  under `/api/v1/` but decisions under `/api/`).
+- `protocol` — an override for operations served with a different wire
+  protocol than the definition's root protocol (e.g. `decision` under an
+  `OpenAICompatible` provider). Keys are matched case-insensitively; the known
+  operation keys are `chat`, `models`, `messages`, `embeddings`, `decisions`.
+
+The resolution precedence for each operation is:
+
+1. the option defaults,
+2. the legacy flat definition field (`chatEndpoint`, `modelsEndpoint`,
+   `messagesEndpoint`),
+3. the `endpoints` entry (`path`, and for decisions also `baseUrl`),
+4. a consumer's `Configure<TOptions>(providerId, ...)` call.
+
+Each later step wins over the earlier ones. Registration-time validation
+rejects an entry that is an absolute URL in `path` (use `baseUrl` for a
+surface on another root), a non-HTTPS `baseUrl`, an unknown operation key,
+an entry that changes nothing, and a `decisions` override the root protocol
+cannot serve.
+
+When an `OpenAICompatible` or `HybridGateway` provider declares a `decisions`
+entry with `protocol: "decision"`, registration selects the combined
+`OpenAICompatibleDecisionProvider` — one provider id that serves chat,
+streaming, model discovery, embeddings, **and** decisions over its own
+transport (see [Dependency Injection](../getting-started/dependency-injection.md)).
+
 ## OpenAICompatibleProvider
 
 Speaks the OpenAI chat completions dialect (`OpenAICompatibleWireProtocol`):

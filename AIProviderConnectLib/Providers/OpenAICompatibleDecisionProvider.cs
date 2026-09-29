@@ -10,17 +10,22 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AIProviderConnect.Providers;
 
 /// <summary>
-/// Concrete provider for decision models. Answers typed questions about application state with
-/// probabilities. This is not a chat provider: <see cref="ChatAsync"/> throws
-/// <see cref="AiErrorCodes.ChatNotSupported"/>. Model discovery is not implemented — a decisions
-/// surface and a model catalog are different endpoints, and the core stays host-neutral.
+/// Concrete provider for an OpenAI-compatible or hybrid-gateway primary that also declares a
+/// decisions override in its <c>endpoints</c> block. Chat, streaming, embeddings, and model
+/// discovery come from <see cref="OpenAICompatibleProviderBase"/> unchanged; the only added code
+/// is the decisions transport. Selected by <c>RegisterProvider</c> when the definition declares
+/// <c>endpoints["decisions"].protocol = "decision"</c>.
 /// </summary>
-public sealed class DecisionProvider : AIProviderBase, IDecisionProvider
+public sealed class OpenAICompatibleDecisionProvider
+    : OpenAICompatibleProviderBase, IEmbeddingProvider, IDecisionProvider
 {
     private readonly string _decisionsEndpoint;
     private readonly string? _decisionsBaseUrl;
 
-    public DecisionProvider(
+    /// <summary>
+    /// Initializes a new instance of the <see cref="OpenAICompatibleDecisionProvider"/> class.
+    /// </summary>
+    public OpenAICompatibleDecisionProvider(
         HttpClient httpClient,
         AIProviderOptions options,
         IProviderCatalog catalog,
@@ -30,7 +35,10 @@ public sealed class DecisionProvider : AIProviderBase, IDecisionProvider
     {
     }
 
-    public DecisionProvider(
+    /// <summary>
+    /// Initializes a new instance of the <see cref="OpenAICompatibleDecisionProvider"/> class.
+    /// </summary>
+    public OpenAICompatibleDecisionProvider(
         HttpClient httpClient,
         AIProviderOptions options,
         IProviderCatalog catalog,
@@ -39,10 +47,10 @@ public sealed class DecisionProvider : AIProviderBase, IDecisionProvider
         ICredentialResolver? credentialResolver)
         : base(httpClient, catalog, options, providerId, logger, credentialResolver)
     {
-        var decisionOptions = options as DecisionProviderOptions
+        var decisionOptions = options as IDecisionsEndpointOptions
             ?? throw new ArgumentException(
-                $"Options type '{options.GetType().Name}' is not DecisionProviderOptions. " +
-                "DecisionProvider requires DecisionProviderOptions.",
+                $"Options type '{options.GetType().Name}' does not implement IDecisionsEndpointOptions. " +
+                "OpenAICompatibleDecisionProvider requires options with DecisionsEndpoint and DecisionsBaseUrl.",
                 nameof(options));
         _decisionsEndpoint = decisionOptions.DecisionsEndpoint;
         _decisionsBaseUrl = decisionOptions.DecisionsBaseUrl;
@@ -50,20 +58,6 @@ public sealed class DecisionProvider : AIProviderBase, IDecisionProvider
 
     /// <inheritdoc />
     public bool SupportsDecisions => true;
-
-    /// <inheritdoc />
-    public override bool SupportsModelDiscovery => false;
-
-    /// <summary>
-    /// A decision provider is not a chat provider. Always throws
-    /// <see cref="AiException"/> with <see cref="AiErrorCodes.ChatNotSupported"/>.
-    /// </summary>
-    public override Task<ChatCompletionResponse> ChatAsync(
-        ChatCompletionRequest request,
-        CancellationToken cancellationToken = default) =>
-        throw new AiException(
-            AiErrorCodes.ChatNotSupported,
-            $"Provider '{Id}' is a decision provider and does not support chat. Use DecideAsync.");
 
     /// <inheritdoc />
     public async Task<DecisionResponse> DecideAsync(
@@ -93,9 +87,10 @@ public sealed class DecisionProvider : AIProviderBase, IDecisionProvider
             cancellationToken);
     }
 
-    // The decisions surface may live on a different origin than the provider BaseUrl. A full-URL
-    // override in options wins; otherwise the effective base URL (per-request or configured) is used.
-    // When an API key is present, the resolved URL must be HTTPS to protect credentials in transit.
+    // The decisions surface may live on a different root than the provider BaseUrl (the
+    // endpoints["decisions"].baseUrl override). When the override is absent the effective
+    // base URL (per-request or configured) is used. When an API key is present, the resolved
+    // URL must be HTTPS to protect credentials in transit.
     private string ResolveDecisionsBaseUrl(RequestCredentials? credentials)
     {
         var resolvedUrl = !string.IsNullOrWhiteSpace(_decisionsBaseUrl)
@@ -117,6 +112,10 @@ public sealed class DecisionProvider : AIProviderBase, IDecisionProvider
         return resolvedUrl;
     }
 
+    // Delegates to the base virtual ConfigureHeaders so an overridden auth scheme is honored
+    // exactly as for chat.
     private Action<HttpRequestMessage> BuildHeaderConfigurator(RequestCredentials? credentials) =>
-        request => SetBearerAuthentication(request, EffectiveApiKey(Options, credentials));
+        !string.IsNullOrWhiteSpace(credentials?.ApiKey)
+            ? request => ConfigureHeaders(request, EffectiveApiKey(Options, credentials))
+            : ConfigureHeaders;
 }

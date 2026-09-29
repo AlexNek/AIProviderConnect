@@ -5,7 +5,7 @@ namespace AIProviderConnect.Options;
 /// <summary>
 /// Configuration options for decision providers.
 /// </summary>
-public sealed class DecisionProviderOptions : AIProviderOptions
+public sealed class DecisionProviderOptions : AIProviderOptions, IDecisionsEndpointOptions
 {
     /// <summary>
     /// Gets or sets the endpoint path for decision calls, resolved against the provider

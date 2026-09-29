@@ -86,6 +86,18 @@ public interface IDecisionProvider
 }
 ```
 
+### OpenAICompatibleDecisionProvider
+
+A combined implementation registered for an `OpenAICompatible` or
+`HybridGateway` definition whose `endpoints` block declares a `decisions`
+entry with `protocol: "decision"`. It implements `IAIProvider`,
+`IStreamingChatProvider`, `IModelDiscoveryProvider`, `IEmbeddingProvider`,
+**and** `IDecisionProvider`, so a single provider id answers every
+capability query. Its `IAIProvider.Protocol` reports the definition's root
+protocol (`OpenAICompatible`/`HybridGateway`), not `Decision` — the enum
+value describes the chat wire, while the decisions surface is selected by
+the `endpoints` entry. `SupportsDecisions` is `true`.
+
 ## IModelOverrideStore
 
 Consumer-supplied source of `ModelOverride` entries, keyed by provider id.

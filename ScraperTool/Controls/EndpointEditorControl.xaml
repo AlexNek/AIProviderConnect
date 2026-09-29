@@ -1,0 +1,55 @@
+<UserControl x:Class="ScraperTool.Controls.EndpointEditorControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d" d:DesignHeight="200" d:DesignWidth="700">
+    <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Padding="16">
+        <StackPanel>
+            <TextBlock x:Name="TitleElement" FontWeight="SemiBold" Foreground="#333"
+                       Margin="0,0,0,8" FontSize="14" />
+            <TextBlock x:Name="DescriptionElement" Foreground="#666" FontSize="11"
+                       Margin="0,0,0,8" TextWrapping="Wrap" />
+            <ItemsControl ItemsSource="{Binding ItemsSource, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="0" Width="110"
+                                      ItemsSource="{Binding KnownOperations}"
+                                      SelectedItem="{Binding Operation, UpdateSourceTrigger=PropertyChanged}"
+                                      Padding="6,4" Margin="0,0,6,0"
+                                      ToolTip="Operation this endpoint serves" />
+                            <TextBox Grid.Column="1" Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="6,4" Margin="0,0,6,0"
+                                     ToolTip="Relative path resolved against the effective base URL" />
+                            <TextBox Grid.Column="2" Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="6,4" Margin="0,0,6,0"
+                                     ToolTip="Optional base-URL override; empty means the definition's common base URL" />
+                            <ComboBox Grid.Column="3" Width="130"
+                                      ItemsSource="{Binding KnownProtocols}"
+                                      SelectedItem="{Binding Protocol, UpdateSourceTrigger=PropertyChanged}"
+                                      Padding="6,4" Margin="0,0,6,0"
+                                      ToolTip="Optional protocol override; empty inherits the definition's protocol" />
+                            <Button Grid.Column="4" Content="&#x2715;" Padding="8,4"
+                                    Command="{Binding RemoveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"
+                                    ToolTip="Remove this entry" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Content="+ Add Entry"
+                    Command="{Binding AddCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    HorizontalAlignment="Left" Padding="12,6" Margin="0,4,0,0"
+                    Background="#E3F2FD" Foreground="#1565C0" BorderThickness="0"
+                    FontWeight="SemiBold" />
+        </StackPanel>
+    </Border>
+</UserControl>
