@@ -15,7 +15,7 @@ namespace AIProviderConnect.Providers;
 /// (Selection happens in <c>AIProviderServiceCollectionExtensions.ApplyModelOverrides</c>.)
 /// </summary>
 public sealed class StreamingDecisionModelCatalogOverrideDecorator
-    : IAIProvider, IModelDiscoveryProvider, IStreamingChatProvider, IDecisionProvider
+    : IAIProvider, IModelDiscoveryProvider, IStreamingChatProvider, IEmbeddingProvider, IDecisionProvider
 {
     private readonly IAIProvider _inner;
     private readonly IDecisionProvider _innerDecision;
@@ -77,6 +77,16 @@ public sealed class StreamingDecisionModelCatalogOverrideDecorator
             : throw new AiException(
                 AiErrorCodes.ConfigurationError,
                 $"Provider '{_inner.Id}' does not support streaming.");
+
+    /// <inheritdoc />
+    public Task<EmbeddingResponse> EmbedAsync(
+        EmbeddingRequest request,
+        CancellationToken cancellationToken = default) =>
+        _inner is IEmbeddingProvider embedding
+            ? embedding.EmbedAsync(request, cancellationToken)
+            : throw new AiException(
+                AiErrorCodes.ConfigurationError,
+                $"Provider '{_inner.Id}' does not support embeddings.");
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<AIModel>> GetModelsAsync(

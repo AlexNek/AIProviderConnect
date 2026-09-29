@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using AIProviderConnect.Abstractions;
+using AIProviderConnect.Constants;
 using AIProviderConnect.DependencyInjection;
 using AIProviderConnect.Models;
 using AIProviderConnect.Options;
@@ -204,10 +205,10 @@ public class OpenAICompatibleDecisionProviderTests
     [Fact]
     public void Constructor_NonEndpointOptions_ThrowsArgument()
     {
-        // Arrange — HybridGatewayProviderOptions carries chat/embeddings endpoints but not the
-        // decisions seam, so the constructor guard must fire before transport use.
+        // Arrange — ChatOnlyOptions passes the base class guard (IChatAndModelsEndpointOptions)
+        // but fails the derived class guard (IDecisionsEndpointOptions).
         using var handler = new CapturingHttpMessageHandler(DecisionResponseJson);
-        var plainOptions = new HybridGatewayProviderOptions
+        var plainOptions = new ChatOnlyOptions
         {
             BaseUrl = "https://test.example.com/api/v1/"
         };
@@ -219,6 +220,19 @@ public class OpenAICompatibleDecisionProviderTests
         // Assert
         act.Should().Throw<ArgumentException>()
             .Which.Message.Should().Contain("IDecisionsEndpointOptions");
+    }
+
+    /// <summary>
+    /// Test-only options that pass the base class guards
+    /// (<c>IChatAndModelsEndpointOptions</c>, <c>IEmbeddingsEndpointOptions</c>) but not
+    /// the derived class guard (<c>IDecisionsEndpointOptions</c>).
+    /// </summary>
+    private sealed class ChatOnlyOptions : AIProviderOptions, IChatAndModelsEndpointOptions, IEmbeddingsEndpointOptions
+    {
+        public string ChatEndpoint { get; set; } = EndpointDefaults.ChatCompletions;
+        public string ModelsEndpoint { get; set; } = EndpointDefaults.Models;
+        public string EmbeddingsEndpoint { get; set; } = EndpointDefaults.Embeddings;
+        public string DefaultEmbeddingModel { get; set; } = string.Empty;
     }
 
     [Fact]

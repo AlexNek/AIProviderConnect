@@ -18,6 +18,7 @@ public static class ProviderJsonFields
     public const string LoginUrl = "loginUrl";
     public const string MinimumCommitment = "minimumCommitment";
     public const string MinModelCount = "minModelCount";
+    public const string MessagesEndpoint = "messagesEndpoint";
     public const string ModelDescription = "modelDescription";
     public const string ModelDiscoveryNotes = "modelDiscoveryNotes";
     public const string ModelsEndpoint = "modelsEndpoint";

@@ -57,7 +57,10 @@ The resolution precedence for each operation is:
 3. the `endpoints` entry (`path`, and for decisions also `baseUrl`),
 4. a consumer's `Configure<TOptions>(providerId, ...)` call.
 
-Each later step wins over the earlier ones. Registration-time validation
+Each later step wins over the earlier ones. An operation that lives in the
+`endpoints` block owns its wire path: the editor and manifest serializer do not
+write the legacy flat member for it, so a migrated manifest carries each
+operation exactly once. Registration-time validation
 rejects an entry that is an absolute URL in `path` (use `baseUrl` for a
 surface on another root), a non-HTTPS `baseUrl`, an unknown operation key,
 an entry that changes nothing, and a `decisions` override the root protocol
