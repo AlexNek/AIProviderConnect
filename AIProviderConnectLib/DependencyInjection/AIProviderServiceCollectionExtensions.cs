@@ -244,6 +244,13 @@ public static class AIProviderServiceCollectionExtensions
                     CatalogWireProtocol.ApplyProtocolConfiguration(o));
                 break;
 
+            case EProviderProtocol.Decision:
+                Register<DecisionProviderOptions, DecisionProvider>(services, providerCatalog, providerId,
+                                    (client, options, catalog, pid, logger, resolver) => new DecisionProvider(client, options, catalog, pid, logger, resolver));
+                services.Configure<DecisionProviderOptions>(providerId, o =>
+                    DecisionsWireProtocol.ApplyProtocolConfiguration(o));
+                break;
+
             default:
                 throw new ArgumentOutOfRangeException(nameof(protocol), protocol, "Unsupported provider protocol.");
         }
@@ -265,8 +272,12 @@ public static class AIProviderServiceCollectionExtensions
         if (store is null || store.Get(providerId).Count == 0)
             return inner;
 
-        return inner is IStreamingChatProvider
-            ? new ModelCatalogOverrideDecorator(inner, store)
-            : new NonStreamingModelCatalogOverrideDecorator(inner, store);
+        if (inner is IStreamingChatProvider)
+            return new ModelCatalogOverrideDecorator(inner, store);
+
+        if (inner is IDecisionProvider)
+            return new DecisionModelCatalogOverrideDecorator(inner, store);
+
+        return new NonStreamingModelCatalogOverrideDecorator(inner, store);
     }
 }

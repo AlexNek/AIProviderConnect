@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Optional decision-model capability via `IDecisionProvider` (`SupportsDecisions`, `DecideAsync`): a provider answers typed questions about application state with probabilities rather than chat prose. Supports `Choice`, `Noul` (yes/no), and `Score` question kinds with typed answers (`ChoiceAnswer`, `NoulAnswer`, `ScoreAnswer`), a new `EProviderProtocol.Decision` wire protocol (JSON value `"decision"`), an `EModelCapability.Decision` flag for call-free discovery, `DecisionProviderOptions` (configurable `alpha/decisions` endpoint and optional decisions base-URL override), and dedicated error codes (`ai/chat-not-supported`, `ai/decision-not-supported`). A decision provider rejects `ChatAsync`; per-request credentials, retry, and error classification behave as they do for chat
+- `UsageInfo.Cost` (USD, nullable) reports a per-call cost when the provider returns one; existing protocols leave it unset
+
 ## [1.1.0] - 2026-09-28
 
 ### Added

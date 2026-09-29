@@ -1,8 +1,11 @@
 # Wire Protocols
 
-AIProviderConnect does not have one class per provider. It has **four
-protocol implementations** covering five wire protocols, and each catalog
-provider is dispatched to one of them based on its `protocol` field.
+AIProviderConnect does not have one class per provider. It has a small set of
+**protocol implementations** covering the supported wire protocols, and each
+catalog provider is dispatched to one of them based on its `protocol` field.
+The four chat-family implementations below share the same chat/streaming/
+discovery transport; `DecisionProvider` is a non-chat implementation for the
+decisions wire.
 
 ## Protocol Mapping
 
@@ -16,6 +19,7 @@ The catalog JSON stores a protocol string, mapped by
 | `GeminiCompatible` | `KeyQuery` | `KeyQueryProvider` | gemini |
 | `GitHubModelsCompatible` | `Catalog` | `ModelCatalogProvider` | *(no embedded entry — protocol exists for consumer-supplied providers)* |
 | `HybridGateway` | `HybridGateway` | `OpenAICompatibleProvider` | opencode-go, opencode-zen |
+| `decision` | `Decision` | `DecisionProvider` | *(no embedded entry — protocol exists for consumer-supplied decision providers)* |
 
 Unknown or empty protocol strings throw `JsonException`.
 `EProviderProtocol.Native` exists in the enum but no catalog entry maps to
@@ -82,6 +86,21 @@ gateways that multiplex multiple backends. Uses Bearer authentication.
 The `HybridGateway` protocol is served by `OpenAICompatibleProvider`
 internally; there is no separate provider class.
 
+## DecisionProvider
+
+Speaks the decisions dialect (`DecisionsWireProtocol`) — not a chat protocol:
+
+- `POST {BaseUrl}{DecisionsEndpoint}` (default `alpha/decisions`) with
+  `Authorization: Bearer {ApiKey}`, sending `{ model, state, questions }`.
+- `DecisionsBaseUrl` overrides the origin when the decisions surface lives
+  elsewhere than the provider `BaseUrl`.
+- `ChatAsync` throws `ai/chat-not-supported`; the provider does not implement
+  model discovery. Decision support is exposed through `IDecisionProvider`.
+- The request is validated against per-question limits before sending; an
+  over-limit request throws `ai/configuration-error`.
+
+See [Decision Models](../decisions/decision-models.md).
+
 ## Extending with OpenAICompatibleProviderBase
 
 `OpenAICompatibleProviderBase` is a `public abstract` class that consolidates
@@ -124,11 +143,13 @@ protocol-managed headers already in `DefaultHeaders`, so existing entries
 
 ## Common Behavior
 
-All four implementations:
+Every implementation:
 
-- Extend `AIProviderBase` and implement `IAIProvider`,
-  `IStreamingChatProvider`, and `IModelDiscoveryProvider`.
-- Run the same pre-flight checks (enabled, base URL, API key) before any
+- Extends `AIProviderBase` and implements `IAIProvider`. The four chat-family
+  providers also implement `IStreamingChatProvider` and
+  `IModelDiscoveryProvider`; `DecisionProvider` implements `IDecisionProvider`
+  instead and neither streams nor discovers models.
+- Runs the same pre-flight checks (enabled, base URL, API key) before any
   HTTP call — see [Error Handling](error-handling.md).
-- Resolve their `ProviderDefinition` from the catalog by `ProviderId` at
+- Resolves its `ProviderDefinition` from the catalog by `ProviderId` at
   construction time; an unknown ID throws `InvalidOperationException`.

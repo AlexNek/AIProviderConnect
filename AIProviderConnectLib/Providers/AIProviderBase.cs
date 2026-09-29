@@ -589,6 +589,58 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
         }
     }
 
+    /// <summary>
+    /// Shared decisions transport: builds a POST request, sends it, validates the response,
+    /// deserializes the JSON body, and delegates parsing to the caller-supplied function.
+    /// Delegates to the effective-value overload with the configured base URL and no override.
+    /// </summary>
+    protected Task<DecisionResponse> SendDecisionAndParseAsync(
+        string endpoint,
+        object? payload,
+        Action<HttpRequestMessage>? configureHeaders,
+        Func<JsonElement, DecisionResponse> parseResponse,
+        CancellationToken cancellationToken) =>
+        SendDecisionAndParseAsync(
+            endpoint, payload, configureHeaders, parseResponse,
+            Options.BaseUrl, null, cancellationToken);
+
+    /// <summary>
+    /// Shared decisions transport carrying the effective base URL and the per-request header callback,
+    /// validating the effective configuration. Mirrors <see cref="SendChatAndParseAsync(HttpMethod, string, object?, Action{HttpRequestMessage}?, Func{JsonElement, ChatCompletionResponse}, string, RequestCredentials?, CancellationToken)"/>.
+    /// A retry reuses the <paramref name="credentials"/> resolved for that call.
+    /// </summary>
+    protected async Task<DecisionResponse> SendDecisionAndParseAsync(
+        string endpoint,
+        object? payload,
+        Action<HttpRequestMessage>? configureHeaders,
+        Func<JsonElement, DecisionResponse> parseResponse,
+        string baseUrl,
+        RequestCredentials? credentials,
+        CancellationToken cancellationToken)
+    {
+        EnsureProviderEnabled(credentials);
+        Logger.LogDebug("Provider '{ProviderId}': sending POST request to {Endpoint}", ProviderId, endpoint);
+        try
+        {
+            return await _resiliencePipeline.ExecuteAsync(async ct =>
+            {
+                using var httpRequest = BuildRequest(
+                    Options, baseUrl, EffectiveApiKey(Options, credentials), HttpMethod.Post, endpoint, payload, configureHeaders);
+                using var response = await TranslateNetworkExceptionsAsync(
+                    () => HttpClient.SendAsync(httpRequest, ct), ct);
+                await ThrowIfErrorAsync(response, ct);
+                var json = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+                Logger.LogDebug("Provider '{ProviderId}': decision response received (HTTP {StatusCode})", ProviderId, (int)response.StatusCode);
+                return parseResponse(json);
+            }, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogTransportFailure(ex, endpoint);
+            throw;
+        }
+    }
+
     private void LogTransportFailure(Exception ex, string endpoint)
     {
         if (ex is AiException { Code: AiErrorCodes.RateLimited })

@@ -8,9 +8,20 @@ namespace AIProviderConnect.Exceptions;
 public static class AiErrorCodes
 {
     /// <summary>
+    /// A decision provider was asked to perform a chat call, which it does not support.
+    /// </summary>
+    public const string ChatNotSupported = "ai/chat-not-supported";
+
+    /// <summary>
     /// The provider configuration is invalid.
     /// </summary>
     public const string ConfigurationError = "ai/configuration-error";
+
+    /// <summary>
+    /// A decision call was requested on a provider that does not support decisions.
+    /// Check <see cref="IDecisionProvider.SupportsDecisions"/> or <c>is IDecisionProvider</c> first.
+    /// </summary>
+    public const string DecisionNotSupported = "ai/decision-not-supported";
 
     /// <summary>
     /// The requested endpoint was not found.

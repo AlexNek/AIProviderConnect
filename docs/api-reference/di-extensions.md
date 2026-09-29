@@ -104,6 +104,20 @@ via `MessagesApiProtocol.ApplyProtocolConfiguration`.
 
 Base properties only.
 
+### DecisionProviderOptions
+
+Base properties plus:
+
+| Property | Type | Default | Description |
+| --- | --- | --- | --- |
+| `DecisionsEndpoint` | `string` | `"alpha/decisions"` | Endpoint path resolved against `BaseUrl` |
+| `DecisionsBaseUrl` | `string?` | `null` | Full-URL override for hosts whose decisions surface lives on a different origin than `BaseUrl` |
+
+Both are also readable from the definition's `protocolConfiguration`
+(`decisionsEndpoint`, `decisionsBaseUrl`) via
+`DecisionsWireProtocol.ApplyProtocolConfiguration`. See
+[Decision Models](../decisions/decision-models.md).
+
 ### Catalog (uses OpenAICompatibleProviderOptions)
 
 Base properties plus `ChatEndpoint` and `ModelsEndpoint` (see OpenAICompatibleProviderOptions above).

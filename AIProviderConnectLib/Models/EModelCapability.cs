@@ -37,5 +37,8 @@ public enum EModelCapability
 
     VideoRecognition = 1 << 11,
 
-    VideoGeneration = 1 << 12
+    VideoGeneration = 1 << 12,
+
+    // --- Decision ---
+    Decision = 1 << 13
 }

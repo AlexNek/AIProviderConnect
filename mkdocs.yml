@@ -55,6 +55,8 @@ nav:
       - Embeddings: chat/embeddings.md
   - Model Discovery:
       - Model Discovery: model-discovery/model-discovery.md
+  - Decisions:
+      - Decision Models: decisions/decision-models.md
   - API Reference:
       - Core Interfaces: api-reference/interfaces.md
       - Models: api-reference/models.md

@@ -51,7 +51,12 @@ All models live in the `AIProviderConnect.Models` namespace.
 
 ### UsageInfo
 
-`PromptTokens`, `CompletionTokens`, `TotalTokens` (all `int`).
+| Property | Type | Description |
+| --- | --- | --- |
+| `PromptTokens` | `int` | Input tokens |
+| `CompletionTokens` | `int` | Output tokens |
+| `TotalTokens` | `int` | Total tokens |
+| `Cost` | `decimal?` | Per-call cost in USD, or `null` when the provider does not report one. Only the decisions parser populates it |
 
 ## Tool Models
 
@@ -118,6 +123,62 @@ All models live in the `AIProviderConnect.Models` namespace.
 | --- | --- |
 | `PromptTokens` | `int` |
 
+## Decision Models
+
+See [Decision Models](../decisions/decision-models.md) for the full walkthrough.
+
+### DecisionRequest
+
+| Property | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `Model` | `string` | `""` | Falls back to the provider's `DefaultModel` when empty |
+| `State` | `object?` | `null` | Serialized as-is; must be a `string`, `IReadOnlyDictionary<string, object?>`, or `IReadOnlyList<string>` |
+| `Questions` | `IReadOnlyDictionary<string, DecisionQuestion>` | empty | Must be non-empty; keyed by question name |
+
+### DecisionQuestion
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `Kind` | `EDecisionQuestionKind` | required — `Choice`, `Noul`, or `Score` |
+| `Instructions` | `string?` | Free-text guidance for the question |
+| `Criteria` | `IReadOnlyDictionary<string, string>?` | Choice: option → description (1–255); Noul: optional `true`/`false` descriptions |
+| `Scale` | `IReadOnlyList<string>?` | Score: ordered levels (2–10); sent under the wire `criteria` key |
+
+### EDecisionQuestionKind
+
+`Choice` · `Noul` · `Score`
+
+### DecisionResponse
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `Id` | `string` | Response identifier |
+| `Model` | `string` | Model snapshot that served the request |
+| `Provider` | `string` | Serving provider name reported by the host |
+| `Answers` | `IReadOnlyDictionary<string, DecisionAnswer>` | One typed answer per question, keyed by question name |
+| `Usage` | `UsageInfo` | Token accounting, including `Cost` when reported |
+
+### DecisionAnswer
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `Kind` | `EDecisionAnswerKind` | Selects which typed-answer property is populated |
+| `Choice` | `ChoiceAnswer?` | Populated when `Kind` is `Choice` |
+| `Noul` | `NoulAnswer?` | Populated when `Kind` is `Noul` |
+| `Score` | `ScoreAnswer?` | Populated when `Kind` is `Score` |
+
+### EDecisionAnswerKind
+
+`Choice` · `Noul` · `Score` · `Unknown` (forward compatibility)
+
+### ChoiceAnswer / NoulAnswer / ScoreAnswer
+
+| Type | Members |
+| --- | --- |
+| `ChoiceAnswer` | `Selected` (`string`), `Confidence` (`double`), `Probabilities` (`IReadOnlyDictionary<string, double>`) |
+| `NoulAnswer` | `ProbabilityOfYes` (`double`) |
+| `ScoreAnswer` | `Score` (`double` — continuous over the zero-based level indices), `Confidence` (`double`), `LevelProbabilities` (`IReadOnlyDictionary<string, double>` keyed by level index), `Legend` (`IReadOnlyList<string>` — labels in index order) |
+
 ## Credential Models
 
 ### RequestCredentials
@@ -171,11 +232,11 @@ fields are applied. See
 ### EProviderProtocol
 
 `Native` · `OpenAICompatible` · `MessagesApi` · `KeyQuery` · `Catalog` ·
-`HybridGateway`
+`HybridGateway` · `Decision`
 
 ### EModelCapability
 
 `[Flags]` enum: `None`, `TextGeneration`, `StructuredOutput`,
 `ToolCalling`, `Embedding`, `Reranker`, `ImageRecognition`,
 `ImageGeneration`, `AudioRecognition`, `TextToSpeech`, `AudioGeneration`,
-`VideoTranscription`, `VideoRecognition`, `VideoGeneration`.
+`VideoTranscription`, `VideoRecognition`, `VideoGeneration`, `Decision`.

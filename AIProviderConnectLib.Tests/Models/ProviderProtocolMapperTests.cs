@@ -14,6 +14,7 @@ public class ProviderProtocolMapperTests
     [InlineData(EProviderProtocol.KeyQuery, "geminicompatible")]
     [InlineData(EProviderProtocol.Catalog, "githubmodelscompatible")]
     [InlineData(EProviderProtocol.HybridGateway, "hybridgateway")]
+    [InlineData(EProviderProtocol.Decision, "decision")]
     [InlineData(EProviderProtocol.Native, "native")]
     public void ToJson_MapsAllEnumValues(EProviderProtocol protocol, string expectedJson)
     {
@@ -29,6 +30,8 @@ public class ProviderProtocolMapperTests
     [InlineData("githubmodelscompatible", EProviderProtocol.Catalog)]
     [InlineData("hybridgateway", EProviderProtocol.HybridGateway)]
     [InlineData("HybridGateway", EProviderProtocol.HybridGateway)]
+    [InlineData("decision", EProviderProtocol.Decision)]
+    [InlineData("Decision", EProviderProtocol.Decision)]
     [InlineData("native", EProviderProtocol.Native)]
     [InlineData("Native", EProviderProtocol.Native)]
     public void FromJson_MapsAllAliases(string json, EProviderProtocol expected)
