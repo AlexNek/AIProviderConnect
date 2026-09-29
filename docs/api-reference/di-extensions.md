@@ -37,6 +37,7 @@ wired. All methods return the builder for chaining.
 | `AddProvider<TProvider>(string providerId, Func<IServiceProvider, TProvider>)` | Register a consumer `IAIProvider` and exclude that id from the automatic protocol loop |
 | `OverrideModels(string providerId, IEnumerable<ModelOverride>)` | Register model/pricing overrides merged transparently over `GetModelsAsync` (see [Model Discovery](../model-discovery/model-discovery.md)) |
 | `UseModelOverrideStore(IModelOverrideStore)` | Replace the default in-memory override store with a consumer-supplied source |
+| `UseCredentialResolver(ICredentialResolver)` | Register a consumer-supplied resolver consulted once per provider call for runtime credential/model overrides (see [Runtime Credentials](../concepts/runtime-credentials.md)) |
 
 Custom definitions are validated at registration time: a missing id, a
 missing base URL, or a duplicate id throws `ArgumentException`. A
@@ -55,7 +56,7 @@ All options classes live in `AIProviderConnect.Options` and derive from
 | `Enabled` | `bool` | `true` | Provider is enabled by default; set `false` to disable it before any call succeeds |
 | `ApiKey` | `string` | `""` | API key (Bearer token, `x-api-key`, or `x-goog-api-key` header depending on protocol) |
 | `BaseUrl` | `string` | `""` | API base URL |
-| `DefaultModel` | `string` | `""` | Default model hint for the consuming application; requests still set `Model` explicitly |
+| `DefaultModel` | `string` | `""` | Fallback model applied when a request carries no model and no per-call override supplies one; the chat path resolves `credentials?.Model` → `request.Model` → `DefaultModel` |
 | `DefaultHeaders` | `Dictionary<string, string>` | empty | Extra headers sent with every request (see [Custom Headers](../concepts/wire-protocols.md#custom-headers)) |
 | `MaxRetryCount` | `int` | `0` | Maximum retry attempts for transient failures (rate-limit, server errors); 0 disables retry |
 | `RetryDelay` | `TimeSpan` | `1s` | Base delay between retries; actual delay uses exponential backoff with jitter |

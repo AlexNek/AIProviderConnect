@@ -10,6 +10,8 @@ namespace AIProviderConnect.Tests.TestDoubles;
 public sealed class CapturingHttpMessageHandler : HttpMessageHandler
 {
     private readonly string _responseJson;
+    private readonly List<CapturedRequestSnapshot> _snapshots = [];
+    private readonly object _gate = new();
 
     public CapturingHttpMessageHandler(string responseJson)
     {
@@ -23,6 +25,16 @@ public sealed class CapturingHttpMessageHandler : HttpMessageHandler
 
     public HttpRequestMessage? LastRequest { get; private set; }
 
+    /// <summary>
+    /// Gets a snapshot of every request served, in the order they were recorded. Unlike
+    /// <see cref="LastRequest"/> this keeps all concurrent calls distinguishable after the
+    /// provider has disposed its requests.
+    /// </summary>
+    public IReadOnlyList<CapturedRequestSnapshot> RequestSnapshots
+    {
+        get { lock (_gate) return _snapshots.ToArray(); }
+    }
+
     public HttpStatusCode StatusCode { get; init; } = HttpStatusCode.OK;
 
     protected override async Task<HttpResponseMessage> SendAsync(
@@ -33,6 +45,8 @@ public sealed class CapturingHttpMessageHandler : HttpMessageHandler
         CapturedBody = request.Content is null
             ? null
             : await request.Content.ReadAsStringAsync(cancellationToken);
+        lock (_gate) _snapshots.Add(new CapturedRequestSnapshot(
+            request.Headers.Authorization?.Parameter, request.RequestUri?.Host));
 
         return new HttpResponseMessage(StatusCode)
         {

@@ -68,11 +68,31 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
     protected ILogger Logger { get; }
 
     private readonly ResiliencePipeline _resiliencePipeline;
+    private readonly ICredentialResolver? _credentialResolver;
+    private RequestCredentials? _fixedCredentials;
+    private bool _fixedCredentialsSet;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="AIProviderBase"/> class.
+    /// Initializes a new instance of the <see cref="AIProviderBase"/> class using the configured
+    /// credential source only (no per-call <see cref="ICredentialResolver"/>).
     /// </summary>
     protected AIProviderBase(HttpClient httpClient, IProviderCatalog catalog, AIProviderOptions options, string providerId, ILogger? logger = null)
+        : this(httpClient, catalog, options, providerId, logger ?? NullLogger.Instance, credentialResolver: null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AIProviderBase"/> class, declaring every parameter
+    /// as required so DI construction can pass a consumer-supplied <see cref="ICredentialResolver"/>
+    /// without introducing an overload-resolution ambiguity for calls that omit both logger and resolver.
+    /// </summary>
+    protected AIProviderBase(
+        HttpClient httpClient,
+        IProviderCatalog catalog,
+        AIProviderOptions options,
+        string providerId,
+        ILogger logger,
+        ICredentialResolver? credentialResolver)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -83,9 +103,29 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
         Options = options;
         ProviderId = providerId;
         Logger = logger ?? NullLogger.Instance;
+        _credentialResolver = credentialResolver;
         Definition = catalog.Get(providerId)
             ?? throw new InvalidOperationException($"Provider '{providerId}' not found in catalog.");
         _resiliencePipeline = BuildResiliencePipeline();
+    }
+
+    /// <summary>
+    /// Gets or sets credential overrides attached once to an activator-created transient instance before
+    /// publication. The backing field accepts its first write and throws <see cref="InvalidOperationException"/>
+    /// on any later write, so the single-assignment rule is enforced rather than assumed. Never set on the
+    /// DI singleton, which is shared by every concurrent caller.
+    /// </summary>
+    internal RequestCredentials? FixedCredentials
+    {
+        get => _fixedCredentials;
+        set
+        {
+            if (_fixedCredentialsSet)
+                throw new InvalidOperationException(
+                    $"Provider '{ProviderId}': fixed credentials have already been assigned and cannot be overwritten.");
+            _fixedCredentials = value;
+            _fixedCredentialsSet = true;
+        }
     }
 
     private ResiliencePipeline BuildResiliencePipeline()
@@ -143,22 +183,145 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
     }
 
     /// <summary>
+    /// Validates the <em>effective</em> configuration for a call that may carry per-request
+    /// <paramref name="credentials"/>: <see cref="AIProviderOptions.Enabled"/>, the effective base URL,
+    /// and — when <see cref="RequiresApiKey"/> is true — the effective API key. A provider configured
+    /// with an empty key can complete a call once an override supplies one.
+    /// Call sites invoke it before the model is resolved, so a disabled or unconfigured provider
+    /// surfaces the actionable configuration error instead of <see cref="AiErrorCodes.InvalidRequest"/>.
+    /// </summary>
+    protected void EnsureProviderEnabled(RequestCredentials? credentials)
+    {
+        if (!Options.Enabled)
+            throw new AiException(AiErrorCodes.ProviderDisabled, $"Provider '{Id}' is disabled.");
+
+        var effectiveBaseUrl = EffectiveBaseUrl(Options, credentials);
+        if (string.IsNullOrWhiteSpace(effectiveBaseUrl))
+            throw new AiException(AiErrorCodes.NoBaseUrl, $"Provider '{Id}' is missing a base URL.");
+
+        var effectiveApiKey = EffectiveApiKey(Options, credentials);
+        if (RequiresApiKey && string.IsNullOrWhiteSpace(effectiveApiKey))
+            throw new AiException(AiErrorCodes.NoApiKey, $"Provider '{Id}' is missing an API key.");
+
+        if (!string.IsNullOrWhiteSpace(effectiveApiKey)
+            && Uri.TryCreate(effectiveBaseUrl, UriKind.Absolute, out var uri)
+            && !uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new AiException(AiErrorCodes.InvalidRequest,
+                $"Provider '{Id}': base URL must use HTTPS when an API key is present.");
+        }
+    }
+
+    /// <summary>
+    /// Resolves the per-call credential overrides once at the call site. Returns
+    /// <see cref="FixedCredentials"/> when set (factory-overload path), otherwise consults the injected
+    /// <see cref="ICredentialResolver"/> (normalizing an all-unset record to <c>null</c>), otherwise
+    /// <c>null</c> (use configured values). A throwing resolver surfaces as
+    /// <see cref="AiException"/> with <see cref="AiErrorCodes.ProviderMissingConfiguration"/>; caller
+    /// cancellation propagates unchanged.
+    /// </summary>
+    protected virtual async ValueTask<RequestCredentials?> ResolveCredentialsAsync(
+        CancellationToken cancellationToken)
+    {
+        if (FixedCredentials is { } fixedCredentials)
+            return fixedCredentials;
+
+        if (_credentialResolver is null)
+            return null;
+
+        try
+        {
+            var resolved = await _credentialResolver.ResolveAsync(ProviderId, cancellationToken);
+            return IsAllUnset(resolved) ? null : resolved;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new AiException(
+                AiErrorCodes.ProviderMissingConfiguration,
+                $"Credential resolution for provider '{Id}' failed.",
+                ex);
+        }
+    }
+
+    /// <summary>
+    /// Returns the effective base URL: <see cref="RequestCredentials.BaseUrl"/> when non-null and
+    /// non-whitespace, otherwise <see cref="AIProviderOptions.BaseUrl"/>. A plain <c>??</c> chain is not
+    /// sufficient because an empty string from a resolver is non-null; null, empty, and whitespace all
+    /// fall back to the configured value.
+    /// </summary>
+    protected static string EffectiveBaseUrl(AIProviderOptions options, RequestCredentials? credentials) =>
+        !string.IsNullOrWhiteSpace(credentials?.BaseUrl) ? credentials!.BaseUrl! : options.BaseUrl;
+
+    /// <summary>
+    /// Returns the effective API key: <see cref="RequestCredentials.ApiKey"/> when non-null and
+    /// non-whitespace, otherwise <see cref="AIProviderOptions.ApiKey"/>. Null, empty, and whitespace all
+    /// fall back to the configured value.
+    /// </summary>
+    protected static string EffectiveApiKey(AIProviderOptions options, RequestCredentials? credentials) =>
+        !string.IsNullOrWhiteSpace(credentials?.ApiKey) ? credentials!.ApiKey! : options.ApiKey;
+
+    /// <summary>
+    /// Resolves the effective model for a chat request: <see cref="RequestCredentials.Model"/> when
+    /// non-empty, else the request's model when non-empty, else
+    /// <see cref="AIProviderOptions.DefaultModel"/> when non-empty. The result may be empty; the caller
+    /// throws <see cref="AiException"/> with <see cref="AiErrorCodes.InvalidRequest"/> in that case.
+    /// </summary>
+    protected static string ResolveEffectiveModel(
+        string requestModel,
+        RequestCredentials? credentials,
+        AIProviderOptions options)
+    {
+        if (!string.IsNullOrWhiteSpace(credentials?.Model))
+            return credentials!.Model!;
+        if (!string.IsNullOrWhiteSpace(requestModel))
+            return requestModel;
+        return options.DefaultModel;
+    }
+
+    private static bool IsAllUnset(RequestCredentials? credentials) =>
+        credentials is null
+        || (string.IsNullOrWhiteSpace(credentials.ApiKey)
+            && string.IsNullOrWhiteSpace(credentials.BaseUrl)
+            && string.IsNullOrWhiteSpace(credentials.Model));
+
+    /// <summary>
     /// Builds a request using protocol-specific headers, or Bearer authentication when
     /// no header configurator is supplied. Shared clients are never mutated.
+    /// Delegates to the effective-value overload with the configured base URL and key.
     /// </summary>
     protected static HttpRequestMessage BuildRequest(
         AIProviderOptions options,
         HttpMethod method,
         string endpoint,
         object? body = null,
+        Action<HttpRequestMessage>? configureHeaders = null) =>
+        BuildRequest(options, options.BaseUrl, options.ApiKey, method, endpoint, body, configureHeaders);
+
+    /// <summary>
+    /// Builds a request from an explicit effective <paramref name="baseUrl"/> and
+    /// <paramref name="apiKey"/>, so a per-call override reaches the outgoing request without mutating
+    /// the shared <see cref="AIProviderOptions"/>. The configured <paramref name="options"/> still supply
+    /// the default headers.
+    /// </summary>
+    protected static HttpRequestMessage BuildRequest(
+        AIProviderOptions options,
+        string baseUrl,
+        string apiKey,
+        HttpMethod method,
+        string endpoint,
+        object? body = null,
         Action<HttpRequestMessage>? configureHeaders = null)
     {
-        var url = new Uri(new Uri(EnsureTrailingSlash(options.BaseUrl)), endpoint);
+        var url = new Uri(new Uri(EnsureTrailingSlash(baseUrl)), endpoint);
         var request = new HttpRequestMessage(method, url);
         try
         {
             if (configureHeaders is null)
-                SetBearerAuthentication(request, options.ApiKey);
+                SetBearerAuthentication(request, apiKey);
             else
                 configureHeaders(request);
 
@@ -273,6 +436,23 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
     /// <summary>
     /// Shared non-streaming chat transport: builds the request, sends it, validates the response,
     /// deserializes the JSON body, and delegates parsing to the caller-supplied function.
+    /// Delegates to the effective-value overload with the configured base URL and no override.
+    /// </summary>
+    protected Task<ChatCompletionResponse> SendChatAndParseAsync(
+        HttpMethod method,
+        string endpoint,
+        object? payload,
+        Action<HttpRequestMessage>? configureHeaders,
+        Func<JsonElement, ChatCompletionResponse> parseResponse,
+        CancellationToken cancellationToken) =>
+        SendChatAndParseAsync(
+            method, endpoint, payload, configureHeaders, parseResponse,
+            Options.BaseUrl, null, cancellationToken);
+
+    /// <summary>
+    /// Shared non-streaming chat transport carrying the effective base URL and the per-request header
+    /// callback, validating the effective configuration. A retry reuses the <paramref name="credentials"/>
+    /// resolved for that call — the pipeline never re-consults the resolver.
     /// </summary>
     protected async Task<ChatCompletionResponse> SendChatAndParseAsync(
         HttpMethod method,
@@ -280,15 +460,18 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
         object? payload,
         Action<HttpRequestMessage>? configureHeaders,
         Func<JsonElement, ChatCompletionResponse> parseResponse,
+        string baseUrl,
+        RequestCredentials? credentials,
         CancellationToken cancellationToken)
     {
-        EnsureProviderEnabled();
+        EnsureProviderEnabled(credentials);
         Logger.LogDebug("Provider '{ProviderId}': sending {Method} request to {Endpoint}", ProviderId, method, endpoint);
         try
         {
             return await _resiliencePipeline.ExecuteAsync(async ct =>
             {
-                using var httpRequest = BuildRequest(Options, method, endpoint, payload, configureHeaders);
+                using var httpRequest = BuildRequest(
+                    Options, baseUrl, EffectiveApiKey(Options, credentials), method, endpoint, payload, configureHeaders);
                 using var response = await TranslateNetworkExceptionsAsync(
                     () => HttpClient.SendAsync(httpRequest, ct), ct);
                 await ThrowIfErrorAsync(response, ct);
@@ -307,20 +490,38 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
     /// <summary>
     /// Shared model-discovery transport: builds a GET request, sends it, validates the response,
     /// deserializes the JSON body, and delegates parsing to the caller-supplied function.
+    /// Delegates to the effective-value overload with the configured base URL and no override.
+    /// </summary>
+    protected Task<IReadOnlyList<AIModel>> SendGetModelsAndParseAsync(
+        string endpoint,
+        Action<HttpRequestMessage>? configureHeaders,
+        Func<JsonElement, IReadOnlyList<AIModel>> parseModels,
+        CancellationToken cancellationToken) =>
+        SendGetModelsAndParseAsync(
+            endpoint, configureHeaders, parseModels,
+            Options.BaseUrl, null, cancellationToken);
+
+    /// <summary>
+    /// Shared model-discovery transport carrying the effective base URL and the per-request header
+    /// callback, validating the effective configuration.
     /// </summary>
     protected async Task<IReadOnlyList<AIModel>> SendGetModelsAndParseAsync(
         string endpoint,
         Action<HttpRequestMessage>? configureHeaders,
         Func<JsonElement, IReadOnlyList<AIModel>> parseModels,
+        string baseUrl,
+        RequestCredentials? credentials,
         CancellationToken cancellationToken)
     {
-        EnsureProviderEnabled();
+        EnsureProviderEnabled(credentials);
         Logger.LogDebug("Provider '{ProviderId}': sending GET request to {Endpoint}", ProviderId, endpoint);
         try
         {
             return await _resiliencePipeline.ExecuteAsync(async ct =>
             {
-                using var httpRequest = BuildRequest(Options, HttpMethod.Get, endpoint, configureHeaders: configureHeaders);
+                using var httpRequest = BuildRequest(
+                    Options, baseUrl, EffectiveApiKey(Options, credentials), HttpMethod.Get, endpoint,
+                    configureHeaders: configureHeaders);
                 using var response = await TranslateNetworkExceptionsAsync(
                     () => HttpClient.SendAsync(httpRequest, ct), ct);
                 await ThrowIfErrorAsync(response, ct);
@@ -340,21 +541,39 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
     /// <summary>
     /// Shared embeddings transport: builds a POST request, sends it, validates the response,
     /// deserializes the JSON body, and delegates parsing to the caller-supplied function.
+    /// Delegates to the effective-value overload with the configured base URL and no override.
+    /// </summary>
+    protected Task<EmbeddingResponse> SendEmbeddingsAndParseAsync(
+        string endpoint,
+        object? payload,
+        Action<HttpRequestMessage>? configureHeaders,
+        Func<JsonElement, EmbeddingResponse> parseResponse,
+        CancellationToken cancellationToken) =>
+        SendEmbeddingsAndParseAsync(
+            endpoint, payload, configureHeaders, parseResponse,
+            Options.BaseUrl, null, cancellationToken);
+
+    /// <summary>
+    /// Shared embeddings transport carrying the effective base URL and the per-request header callback,
+    /// validating the effective configuration.
     /// </summary>
     protected async Task<EmbeddingResponse> SendEmbeddingsAndParseAsync(
         string endpoint,
         object? payload,
         Action<HttpRequestMessage>? configureHeaders,
         Func<JsonElement, EmbeddingResponse> parseResponse,
+        string baseUrl,
+        RequestCredentials? credentials,
         CancellationToken cancellationToken)
     {
-        EnsureProviderEnabled();
+        EnsureProviderEnabled(credentials);
         Logger.LogDebug("Provider '{ProviderId}': sending POST request to {Endpoint}", ProviderId, endpoint);
         try
         {
             return await _resiliencePipeline.ExecuteAsync(async ct =>
             {
-                using var httpRequest = BuildRequest(Options, HttpMethod.Post, endpoint, payload, configureHeaders);
+                using var httpRequest = BuildRequest(
+                    Options, baseUrl, EffectiveApiKey(Options, credentials), HttpMethod.Post, endpoint, payload, configureHeaders);
                 using var response = await TranslateNetworkExceptionsAsync(
                     () => HttpClient.SendAsync(httpRequest, ct), ct);
                 await ThrowIfEmbeddingErrorAsync(response, ct);
@@ -396,13 +615,22 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
     }
 
     /// <summary>
-    /// Configures API-key authentication via a custom header name for a single request.
-    /// Throws <see cref="InvalidOperationException"/> when the key is present but
+    /// Configures API-key authentication via a custom header name for a single request, using the key
+    /// from <paramref name="options"/>. Delegates to the effective-key overload.
+    /// </summary>
+    protected void SetApiKeyHeader(HttpRequestMessage request, AIProviderOptions options) =>
+        SetApiKeyHeader(request, options, options.ApiKey);
+
+    /// <summary>
+    /// Configures API-key authentication via a custom header name for a single request using an explicit
+    /// effective <paramref name="apiKey"/>, so a per-call override reaches the outgoing request. The header
+    /// name is still read from <paramref name="options"/>. Throws
+    /// <see cref="InvalidOperationException"/> when the key is present but
     /// <see cref="AIProviderOptions.CustomAuthHeaderName"/> is not set.
     /// </summary>
-    protected void SetApiKeyHeader(HttpRequestMessage request, AIProviderOptions options)
+    protected void SetApiKeyHeader(HttpRequestMessage request, AIProviderOptions options, string apiKey)
     {
-        var trimmedKey = options.ApiKey?.Trim();
+        var trimmedKey = apiKey?.Trim();
         if (!string.IsNullOrWhiteSpace(trimmedKey))
         {
             var headerName = options.CustomAuthHeaderName

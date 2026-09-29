@@ -118,6 +118,23 @@ All models live in the `AIProviderConnect.Models` namespace.
 | --- | --- |
 | `PromptTokens` | `int` |
 
+## Credential Models
+
+### RequestCredentials
+
+Immutable per-call override record. Every field is nullable; `null` (or
+whitespace) means "use the provider's configured value", and a record with all
+three unset counts as "no override". `BaseUrl` must be the full API base
+including the version segment (for example `https://test.example.com/v1/`).
+The `ToString()` override masks `ApiKey` (at most the last four characters) so
+the record is safe to log. See [Runtime Credentials](../concepts/runtime-credentials.md).
+
+| Property | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `ApiKey` | `string?` | `null` | Overrides the configured API key / Bearer token for the call |
+| `BaseUrl` | `string?` | `null` | Overrides the configured base URL (full base including version segment) |
+| `Model` | `string?` | `null` | Overrides the request/default model for the call |
+
 ## Catalog Models
 
 ### ProviderDefinition

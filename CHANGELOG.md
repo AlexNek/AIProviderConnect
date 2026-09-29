@@ -7,8 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-28
+
 ### Added
 - Optional embeddings capability via `IEmbeddingProvider` with OpenAI-compatible `/embeddings` wire mapping, separate `DefaultEmbeddingModel` configuration, and dedicated error codes (`ai/embedding-failed`, `ai/embedding-model-not-configured`)
+- Per-request (runtime) credential and model resolution: the `RequestCredentials` record (key-masked `ToString`) and the `ICredentialResolver` hook let a consumer supply an API key, base URL, and model per call — across chat, streaming, model discovery, and embeddings — without rebuilding the DI graph or leaving the singleton provider behind. Resolution priority is `GetProvider` overrides > `ICredentialResolver` > configured options
+- `IAIProviderFactory.GetProvider(providerId, RequestCredentials overrides)` returns a transient provider bound to the supplied overrides; the shared singleton resolved by `GetProvider(providerId)` is never mutated. A provider id that has model-override entries is decorated, and the decorator exposes no embeddings through either overload
+- `AddAiProviders(b => b.UseCredentialResolver(resolver))` registers a consumer-supplied `ICredentialResolver` (the library ships no default implementation)
+
+### Changed
+- `AIProviderOptions.DefaultModel` is now applied at runtime as the fallback model when a request carries no model and no per-call override supplies one; it was previously inert. An empty effective chat model now throws `AiException` with `ai/invalid-request`
+- Provider configuration is validated against the effective values (per-call override combined with configured options) before the model is resolved, so a provider configured with an empty API key or base URL completes a call once an override supplies the missing value, still fails when nothing does, and keeps reporting the actionable configuration error when the request also carries no model
+- `IAIProviderFactory` gains the `GetProvider(providerId, RequestCredentials)` member — a breaking change for consumers who implement `IAIProviderFactory` themselves, who must now also implement the new overload
 
 ## [1.0.0] - 2026-09-25
 

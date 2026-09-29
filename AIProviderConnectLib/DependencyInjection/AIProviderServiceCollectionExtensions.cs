@@ -25,7 +25,7 @@ public static class AIProviderServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddAiProviders(this IServiceCollection services)
     {
-        return RegisterCore(services, new ProviderCatalog(), null, null, null, null);
+        return RegisterCore(services, new ProviderCatalog(), null, null, null, null, null);
     }
 
     /// <summary>
@@ -44,7 +44,7 @@ public static class AIProviderServiceCollectionExtensions
             customProviders as IReadOnlyList<ProviderDefinition> ?? customProviders.ToList();
         CustomProviderDefinitionValidator.Validate(definitions);
 
-        return RegisterCore(services, new ProviderCatalog(definitions), null, null, null, null);
+        return RegisterCore(services, new ProviderCatalog(definitions), null, null, null, null, null);
     }
 
     /// <summary>
@@ -73,7 +73,8 @@ public static class AIProviderServiceCollectionExtensions
             builder.OptionRegistrations,
             builder.CustomProviders,
             builder.ManuallyRegisteredIds,
-            builder.ModelOverrideStore);
+            builder.ModelOverrideStore,
+            builder.CredentialResolver);
     }
 
     private static IServiceCollection RegisterCore(
@@ -82,11 +83,17 @@ public static class AIProviderServiceCollectionExtensions
         IReadOnlyList<Action<IServiceCollection>>? optionRegistrations,
         IReadOnlyDictionary<string, Func<IServiceProvider, IAIProvider>>? customProviders,
         IReadOnlySet<string>? manuallyRegisteredIds,
-        IModelOverrideStore? modelOverrideStore)
+        IModelOverrideStore? modelOverrideStore,
+        ICredentialResolver? credentialResolver)
     {
         services.AddSingleton(catalog);
         services.AddSingleton<IProviderCatalog>(catalog);
         services.AddSingleton<IAIProviderFactory, DefaultAIProviderFactory>();
+
+        if (credentialResolver is not null)
+        {
+            services.AddSingleton(credentialResolver);
+        }
 
         if (modelOverrideStore is not null)
         {
@@ -156,7 +163,7 @@ public static class AIProviderServiceCollectionExtensions
         IServiceCollection services,
         IProviderCatalog catalog,
         string providerId,
-        Func<HttpClient, TOptions, IProviderCatalog, string, ILogger, TProvider> factory)
+        Func<HttpClient, TOptions, IProviderCatalog, string, ILogger, ICredentialResolver?, TProvider> factory)
         where TOptions : AIProviderOptions
         where TProvider : class, IAIProvider
     {
@@ -168,7 +175,8 @@ public static class AIProviderServiceCollectionExtensions
             sp.GetRequiredService<IOptionsFactory<TOptions>>().Create(providerId),
             sp.GetRequiredService<IProviderCatalog>(),
             providerId,
-            ResolveLogger<TOptions>(sp)));
+            ResolveLogger<TOptions>(sp),
+            sp.GetService<ICredentialResolver>()));
     }
 
     /// <summary>
@@ -186,6 +194,8 @@ public static class AIProviderServiceCollectionExtensions
     {
         services.AddKeyedSingleton<IAIProvider>(providerId,
             (sp, _) => ApplyModelOverrides(sp, providerId, factory(sp)));
+        services.AddKeyedSingleton<ProviderActivator>(providerId,
+            (sp, _) => new ProviderActivator(sp, factory, providerId));
     }
 
     private static void RegisterProvider(
@@ -205,31 +215,31 @@ public static class AIProviderServiceCollectionExtensions
 
             case EProviderProtocol.OpenAICompatible:
                 Register<OpenAICompatibleProviderOptions, OpenAICompatibleProvider>(services, providerCatalog, providerId,
-                                    (client, options, catalog, pid, logger) => new OpenAICompatibleProvider(client, options, catalog, pid, logger));
+                                    (client, options, catalog, pid, logger, resolver) => new OpenAICompatibleProvider(client, options, catalog, pid, logger, resolver));
                 break;
 
             case EProviderProtocol.MessagesApi:
                 Register<MessagesApiOptions, MessagesApiProvider>(services, providerCatalog, providerId,
-                                    (client, options, catalog, pid, logger) => new MessagesApiProvider(client, options, catalog, pid, logger));
+                                    (client, options, catalog, pid, logger, resolver) => new MessagesApiProvider(client, options, catalog, pid, logger, resolver));
                 services.Configure<MessagesApiOptions>(providerId, o =>
                     MessagesApiProtocol.ApplyProtocolConfiguration(o));
                 break;
 
             case EProviderProtocol.HybridGateway:
                 Register<HybridGatewayProviderOptions, OpenAICompatibleProvider>(services, providerCatalog, providerId,
-                                    (client, options, catalog, pid, logger) => new OpenAICompatibleProvider(client, options, catalog, pid, logger));
+                                    (client, options, catalog, pid, logger, resolver) => new OpenAICompatibleProvider(client, options, catalog, pid, logger, resolver));
                 break;
 
             case EProviderProtocol.KeyQuery:
                 Register<KeyQueryOptions, KeyQueryProvider>(services, providerCatalog, providerId,
-                                    (client, options, catalog, pid, logger) => new KeyQueryProvider(client, options, catalog, pid, logger));
+                                    (client, options, catalog, pid, logger, resolver) => new KeyQueryProvider(client, options, catalog, pid, logger, resolver));
                 services.Configure<KeyQueryOptions>(providerId, o =>
                     KeyQueryWireProtocol.ApplyProtocolConfiguration(o));
                 break;
 
             case EProviderProtocol.Catalog:
                 Register<OpenAICompatibleProviderOptions, ModelCatalogProvider>(services, providerCatalog, providerId,
-                                    (client, options, catalog, pid, logger) => new ModelCatalogProvider(client, options, catalog, pid, logger));
+                                    (client, options, catalog, pid, logger, resolver) => new ModelCatalogProvider(client, options, catalog, pid, logger, resolver));
                 services.Configure<OpenAICompatibleProviderOptions>(providerId, o =>
                     CatalogWireProtocol.ApplyProtocolConfiguration(o));
                 break;
@@ -246,7 +256,7 @@ public static class AIProviderServiceCollectionExtensions
     /// streaming, the streaming-capable decorator is used; otherwise a non-streaming decorator
     /// is selected so the <c>is IStreamingChatProvider</c> check remains accurate.
     /// </summary>
-    private static IAIProvider ApplyModelOverrides(
+    internal static IAIProvider ApplyModelOverrides(
         IServiceProvider serviceProvider,
         string providerId,
         IAIProvider inner)

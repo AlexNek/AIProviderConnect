@@ -25,6 +25,17 @@ public sealed class ModelCatalogProvider : OpenAICompatibleProviderBase
     {
     }
 
+    public ModelCatalogProvider(
+        HttpClient httpClient,
+        OpenAICompatibleProviderOptions options,
+        IProviderCatalog catalog,
+        string providerId,
+        ILogger logger,
+        ICredentialResolver? credentialResolver)
+        : base(httpClient, catalog, options, providerId, logger, credentialResolver)
+    {
+    }
+
     protected override IReadOnlyList<AIModel> ParseModels(JsonElement json) =>
         CatalogWireProtocol.ParseModels(json, Id);
 }

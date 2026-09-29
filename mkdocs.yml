@@ -47,6 +47,7 @@ nav:
       - Provider Catalog: concepts/provider-catalog.md
       - Wire Protocols: concepts/wire-protocols.md
       - Error Handling: concepts/error-handling.md
+      - Runtime Credentials: concepts/runtime-credentials.md
   - Chat:
       - Chat Completions: chat/chat-completions.md
       - Streaming: chat/streaming.md

@@ -91,6 +91,16 @@ to supply `ChatEndpoint`, `ModelsEndpoint`, and optionally override
 third-party providers that speak the OpenAI wire format with bespoke auth or
 endpoint selection.
 
+!!! note "Per-call credentials use the two-argument `ConfigureHeaders`"
+    `ConfigureHeaders` has two overloads. A call that carries a per-request API
+    key invokes `ConfigureHeaders(request, apiKey)` with the effective key; the
+    one-argument form is used only when the call supplies no key override, and
+    it delegates to the two-argument form with `Options.ApiKey`. A subclass that
+    adds bespoke headers must therefore override
+    `ConfigureHeaders(request, apiKey)` — overriding only the one-argument form
+    would be bypassed for credential-carrying calls. See
+    [Runtime Credentials](runtime-credentials.md).
+
 ## Custom Headers
 
 Every protocol sends the headers in `AIProviderOptions.DefaultHeaders` with

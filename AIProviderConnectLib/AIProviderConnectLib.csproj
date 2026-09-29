@@ -54,6 +54,8 @@
   <ItemGroup>
     <!-- Shared parsing helpers are internal by design; the unit-test assembly needs direct access. -->
     <InternalsVisibleTo Include="AIProviderConnectLib.Tests" />
+    <!-- ScraperTool constructs providers manually and must set FixedCredentials for model overrides. -->
+    <InternalsVisibleTo Include="ScraperTool" />
   </ItemGroup>
 
   <ItemGroup>
