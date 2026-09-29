@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-28
+
 ### Added
 - Optional embeddings capability via `IEmbeddingProvider` with OpenAI-compatible `/embeddings` wire mapping, separate `DefaultEmbeddingModel` configuration, and dedicated error codes (`ai/embedding-failed`, `ai/embedding-model-not-configured`)
 - Per-request (runtime) credential and model resolution: the `RequestCredentials` record (key-masked `ToString`) and the `ICredentialResolver` hook let a consumer supply an API key, base URL, and model per call — across chat, streaming, model discovery, and embeddings — without rebuilding the DI graph or leaving the singleton provider behind. Resolution priority is `GetProvider` overrides > `ICredentialResolver` > configured options

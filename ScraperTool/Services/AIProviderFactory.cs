@@ -41,16 +41,21 @@ public sealed class AIProviderFactory : ITransientCredentialProviderFactory
     /// Creates a provider bound to per-call <see cref="RequestCredentials"/> overrides. The effective API
     /// key is <see cref="RequestCredentials.ApiKey"/> when non-empty, else the saved setting; the effective
     /// base URL is <see cref="RequestCredentials.BaseUrl"/> when non-empty, else the catalog definition's
-    /// base URL. <see cref="RequestCredentials.Model"/> is intentionally not applied at construction — every
-    /// ScraperTool call site sets <see cref="ChatCompletionRequest.Model"/> explicitly, so there is no
-    /// default-model seam to fill here.
+    /// base URL. <see cref="RequestCredentials.Model"/> is attached as the provider's fixed credentials
+    /// so it takes priority over <see cref="ChatCompletionRequest.Model"/> on every request.
     /// </summary>
     public IAIProvider GetProvider(string providerId, RequestCredentials overrides)
     {
         ArgumentNullException.ThrowIfNull(overrides);
         var apiKey = !string.IsNullOrWhiteSpace(overrides.ApiKey) ? overrides.ApiKey : _settings.ApiKey;
         var baseUrlOverride = !string.IsNullOrWhiteSpace(overrides.BaseUrl) ? overrides.BaseUrl : null;
-        return CreateProvider(providerId, apiKey ?? string.Empty, baseUrlOverride);
+        var provider = CreateProvider(providerId, apiKey ?? string.Empty, baseUrlOverride);
+        if (provider is AIProviderBase concrete)
+        {
+            concrete.FixedCredentials = overrides;
+        }
+
+        return provider;
     }
 
     private IAIProvider BuildProvider(

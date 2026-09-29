@@ -194,10 +194,22 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
     {
         if (!Options.Enabled)
             throw new AiException(AiErrorCodes.ProviderDisabled, $"Provider '{Id}' is disabled.");
-        if (string.IsNullOrWhiteSpace(EffectiveBaseUrl(Options, credentials)))
+
+        var effectiveBaseUrl = EffectiveBaseUrl(Options, credentials);
+        if (string.IsNullOrWhiteSpace(effectiveBaseUrl))
             throw new AiException(AiErrorCodes.NoBaseUrl, $"Provider '{Id}' is missing a base URL.");
-        if (RequiresApiKey && string.IsNullOrWhiteSpace(EffectiveApiKey(Options, credentials)))
+
+        var effectiveApiKey = EffectiveApiKey(Options, credentials);
+        if (RequiresApiKey && string.IsNullOrWhiteSpace(effectiveApiKey))
             throw new AiException(AiErrorCodes.NoApiKey, $"Provider '{Id}' is missing an API key.");
+
+        if (!string.IsNullOrWhiteSpace(effectiveApiKey)
+            && Uri.TryCreate(effectiveBaseUrl, UriKind.Absolute, out var uri)
+            && !uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new AiException(AiErrorCodes.InvalidRequest,
+                $"Provider '{Id}': base URL must use HTTPS when an API key is present.");
+        }
     }
 
     /// <summary>
