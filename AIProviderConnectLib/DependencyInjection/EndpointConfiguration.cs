@@ -88,7 +88,7 @@ internal static class EndpointConfiguration
 
         if (entry.BaseUrl is not null
             && (!Uri.TryCreate(entry.BaseUrl, UriKind.Absolute, out var baseUri)
-                || !baseUri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase)))
+                || !baseUri.Scheme.Equals(UriSchemes.Https, StringComparison.OrdinalIgnoreCase)))
         {
             throw new AiException(
                 AiErrorCodes.ConfigurationError,

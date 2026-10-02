@@ -59,7 +59,10 @@ When an `OpenAICompatible` or `HybridGateway` definition declares a
 `decisions` entry with `protocol: "decision"`, registration selects the
 combined `OpenAICompatibleDecisionProvider` (chat, streaming, model
 discovery, embeddings, and decisions under one id) and seeds its
-`DecisionsEndpoint`/`DecisionsBaseUrl` from the entry. This is the one
+`DecisionsEndpoint`/`DecisionsBaseUrl` from the entry; the `embeddings`
+entry's `path` and optional `baseUrl` fold into `EmbeddingsEndpoint` and
+`EmbeddingsBaseUrl` in the same registration, independent of whether a
+`decisions` override is present. This is the one
 exception to "one `IAIProvider` singleton per catalog entry with a concrete
 type chosen from the definition's wire protocol" — the id still holds one
 singleton, but its type serves two wire protocols.
@@ -98,6 +101,7 @@ Base properties plus:
 | `ChatEndpoint` | `string` | `"chat/completions"` |
 | `ModelsEndpoint` | `string` | `"models"` |
 | `EmbeddingsEndpoint` | `string` | `"embeddings"` |
+| `EmbeddingsBaseUrl` | `string?` | `null` |
 | `DefaultEmbeddingModel` | `string` | `""` |
 
 ### HybridGatewayProviderOptions
@@ -112,6 +116,7 @@ Base properties plus:
 | `ChatEndpoint` | `string` | `"chat/completions"` |
 | `ModelsEndpoint` | `string` | `"models"` |
 | `EmbeddingsEndpoint` | `string` | `"embeddings"` |
+| `EmbeddingsBaseUrl` | `string?` | `null` |
 | `DefaultEmbeddingModel` | `string` | `""` |
 
 ### MessagesApiOptions

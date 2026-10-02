@@ -121,4 +121,31 @@ public class MessagesApiProviderTests
         // before reaching the header logic, so this tests that the flow is correct
         await act.Should().ThrowAsync<AIProviderConnect.Exceptions.AiException>();
     }
+
+    [Fact]
+    public async Task ChatAsync_NonAbsoluteBaseUrl_ThrowsInvalidRequest()
+    {
+        // Arrange — a scheme-less base URL is rejected with a structured AiException rather than
+        // leaking a raw UriFormatException from request construction
+        var handler = new CapturingHttpMessageHandler(MessagesResponse);
+        var provider = new MessagesApiProvider(new HttpClient(handler), new MessagesApiOptions
+        {
+            BaseUrl = "relative.example.com/v1/",
+            ApiKey = "fake-api-key",
+            Enabled = true,
+            CustomAuthHeaderName = "x-api-key",
+        }, new ProviderCatalog(), "anthropic");
+
+        // Act
+        Func<Task> act = () => provider.ChatAsync(new ChatCompletionRequest
+        {
+            Model = "claude-3",
+            Messages = [new ChatMessage { Role = EChatRole.User, Content = "Hello" }]
+        });
+
+        // Assert
+        var ex = (await act.Should().ThrowAsync<AIProviderConnect.Exceptions.AiException>()).Which;
+        ex.Code.Should().Be(AIProviderConnect.Exceptions.AiErrorCodes.InvalidRequest);
+        ex.Message.Should().Contain("is not a valid absolute URL");
+    }
 }

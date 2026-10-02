@@ -75,13 +75,7 @@ public sealed class DecisionProvider : AIProviderBase, IDecisionProvider
         var credentials = await ResolveCredentialsAsync(cancellationToken);
         EnsureProviderEnabled(credentials);
 
-        var effectiveModel = ResolveEffectiveModel(request.Model, credentials, Options);
-        if (string.IsNullOrWhiteSpace(effectiveModel))
-            throw new AiException(
-                AiErrorCodes.InvalidRequest,
-                $"Provider '{Id}' has no model to use for the request. Supply a model in the request, via credentials, or configure a default model.");
-
-        var requestWithModel = request with { Model = effectiveModel };
+        var requestWithModel = request with { Model = ResolveEffectiveModelOrThrow(request.Model, credentials) };
 
         return await SendDecisionAndParseAsync(
             _decisionsEndpoint,
@@ -95,27 +89,10 @@ public sealed class DecisionProvider : AIProviderBase, IDecisionProvider
 
     // The decisions surface may live on a different origin than the provider BaseUrl. A full-URL
     // override in options wins; otherwise the effective base URL (per-request or configured) is used.
-    // When an API key is present, the resolved URL must be HTTPS to protect credentials in transit.
-    private string ResolveDecisionsBaseUrl(RequestCredentials? credentials)
-    {
-        var resolvedUrl = !string.IsNullOrWhiteSpace(_decisionsBaseUrl)
-            ? _decisionsBaseUrl!
-            : EffectiveBaseUrl(Options, credentials);
-
-        if (string.IsNullOrWhiteSpace(resolvedUrl))
-            throw new AiException(AiErrorCodes.NoBaseUrl, $"Provider '{Id}' is missing a decisions base URL.");
-
-        var effectiveApiKey = EffectiveApiKey(Options, credentials);
-        if (!string.IsNullOrWhiteSpace(effectiveApiKey)
-            && Uri.TryCreate(resolvedUrl, UriKind.Absolute, out var uri)
-            && !uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new AiException(AiErrorCodes.InvalidRequest,
-                $"Provider '{Id}': decisions base URL must use HTTPS when an API key is present.");
-        }
-
-        return resolvedUrl;
-    }
+    // Resolution, precedence, and HTTPS/absolute safety validation are shared with the other
+    // surfaces via ResolveSurfaceBaseUrl.
+    private string ResolveDecisionsBaseUrl(RequestCredentials? credentials) =>
+        ResolveSurfaceBaseUrl(_decisionsBaseUrl, "decisions", credentials);
 
     private Action<HttpRequestMessage> BuildHeaderConfigurator(RequestCredentials? credentials) =>
         request => SetBearerAuthentication(request, EffectiveApiKey(Options, credentials));

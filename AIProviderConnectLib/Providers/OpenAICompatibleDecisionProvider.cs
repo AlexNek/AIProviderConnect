@@ -1,5 +1,4 @@
 using AIProviderConnect.Abstractions;
-using AIProviderConnect.Exceptions;
 using AIProviderConnect.Models;
 using AIProviderConnect.Options;
 using AIProviderConnect.Protocols;
@@ -69,13 +68,7 @@ public sealed class OpenAICompatibleDecisionProvider
         var credentials = await ResolveCredentialsAsync(cancellationToken);
         EnsureProviderEnabled(credentials);
 
-        var effectiveModel = ResolveEffectiveModel(request.Model, credentials, Options);
-        if (string.IsNullOrWhiteSpace(effectiveModel))
-            throw new AiException(
-                AiErrorCodes.InvalidRequest,
-                $"Provider '{Id}' has no model to use for the request. Supply a model in the request, via credentials, or configure a default model.");
-
-        var requestWithModel = request with { Model = effectiveModel };
+        var requestWithModel = request with { Model = ResolveEffectiveModelOrThrow(request.Model, credentials) };
 
         return await SendDecisionAndParseAsync(
             _decisionsEndpoint,
@@ -88,34 +81,9 @@ public sealed class OpenAICompatibleDecisionProvider
     }
 
     // The decisions surface may live on a different root than the provider BaseUrl (the
-    // endpoints["decisions"].baseUrl override). When the override is absent the effective
-    // base URL (per-request or configured) is used. When an API key is present, the resolved
-    // URL must be HTTPS to protect credentials in transit.
-    private string ResolveDecisionsBaseUrl(RequestCredentials? credentials)
-    {
-        var resolvedUrl = !string.IsNullOrWhiteSpace(_decisionsBaseUrl)
-            ? _decisionsBaseUrl!
-            : EffectiveBaseUrl(Options, credentials);
-
-        if (string.IsNullOrWhiteSpace(resolvedUrl))
-            throw new AiException(AiErrorCodes.NoBaseUrl, $"Provider '{Id}' is missing a decisions base URL.");
-
-        var effectiveApiKey = EffectiveApiKey(Options, credentials);
-        if (!string.IsNullOrWhiteSpace(effectiveApiKey)
-            && Uri.TryCreate(resolvedUrl, UriKind.Absolute, out var uri)
-            && !uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new AiException(AiErrorCodes.InvalidRequest,
-                $"Provider '{Id}': decisions base URL must use HTTPS when an API key is present.");
-        }
-
-        return resolvedUrl;
-    }
-
-    // Delegates to the base virtual ConfigureHeaders so an overridden auth scheme is honored
-    // exactly as for chat.
-    private Action<HttpRequestMessage> BuildHeaderConfigurator(RequestCredentials? credentials) =>
-        !string.IsNullOrWhiteSpace(credentials?.ApiKey)
-            ? request => ConfigureHeaders(request, EffectiveApiKey(Options, credentials))
-            : ConfigureHeaders;
+    // endpoints["decisions"].baseUrl override); resolution, precedence, and safety validation are
+    // shared with the other surfaces via ResolveSurfaceBaseUrl. The inherited BuildHeaderConfigurator
+    // from OpenAICompatibleProviderBase already honors the virtual ConfigureHeaders for chat.
+    private string ResolveDecisionsBaseUrl(RequestCredentials? credentials) =>
+        ResolveSurfaceBaseUrl(_decisionsBaseUrl, "decisions", credentials);
 }

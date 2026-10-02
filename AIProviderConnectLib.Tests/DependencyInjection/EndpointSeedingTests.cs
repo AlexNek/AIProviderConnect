@@ -188,6 +188,112 @@ public class EndpointSeedingTests
     }
 
     [Fact]
+    public void EmbeddingsEntry_FillsEndpointAndBaseUrlOverride()
+    {
+        // Arrange — mirrors DecisionsEntry_FillsEndpointAndBaseUrlOverride; the embeddings
+        // surface lives on a different root than the /api/v1/ common base
+        var definition = Definition(d => d with
+        {
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["embeddings"] = new EndpointDefinition
+                {
+                    Path = "custom/embeddings",
+                    BaseUrl = "https://test.example.com/embed/"
+                }
+            }
+        });
+
+        // Act
+        var options = ResolveOptions<OpenAICompatibleProviderOptions>(definition);
+
+        // Assert
+        options.EmbeddingsEndpoint.Should().Be("custom/embeddings");
+        options.EmbeddingsBaseUrl.Should().Be("https://test.example.com/embed/");
+    }
+
+    [Fact]
+    public void EmbeddingsEntryWithoutOverride_LeavesBaseUrlNull()
+    {
+        // Arrange — the common base is the default: no baseUrl member on the entry
+        var definition = Definition(d => d with
+        {
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["embeddings"] = new EndpointDefinition { Path = "custom/embeddings" }
+            }
+        });
+
+        // Act
+        var options = ResolveOptions<OpenAICompatibleProviderOptions>(definition);
+
+        // Assert
+        options.EmbeddingsEndpoint.Should().Be("custom/embeddings");
+        options.EmbeddingsBaseUrl.Should().BeNull();
+    }
+
+    [Fact]
+    public void HybridGatewayEmbeddingsEntry_FillsBaseUrlOverride()
+    {
+        // Arrange — the HybridGateway options type must fold the same way
+        var definition = new ProviderDefinition
+        {
+            Id = ProviderId,
+            DisplayName = "Hybrid seed test",
+            Protocol = EProviderProtocol.HybridGateway,
+            BaseUrl = "https://test.example.com/api/v1/",
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["embeddings"] = new EndpointDefinition
+                {
+                    BaseUrl = "https://test.example.com/embed/"
+                }
+            }
+        };
+
+        // Act
+        var options = ResolveOptions<HybridGatewayProviderOptions>(definition);
+
+        // Assert — baseUrl-only entry passes the decoration rule (baseUrl is a change) and
+        // now carries meaning via the seeded EmbeddingsBaseUrl
+        options.EmbeddingsBaseUrl.Should().Be("https://test.example.com/embed/");
+    }
+
+    [Fact]
+    public void ConsumerConfigureOverridesSeededEmbeddingsBaseUrl()
+    {
+        // Arrange — pins precedence step 4: a consumer Configure callback runs after
+        // SeedFromDefinition and its value wins
+        var definition = Definition(d => d with
+        {
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["embeddings"] = new EndpointDefinition
+                {
+                    BaseUrl = "https://test.example.com/embed/"
+                }
+            }
+        });
+        var services = new ServiceCollection();
+        services.AddSingleton(new HttpClient());
+        services.AddAiProviders(b =>
+        {
+            b.Add(definition);
+            b.Configure<OpenAICompatibleProviderOptions>(
+                ProviderId, o => o.EmbeddingsBaseUrl = "https://consumer.example.com/");
+        });
+        using var provider = services.BuildServiceProvider();
+
+        // Act
+        var options = provider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<OpenAICompatibleProviderOptions>>()
+            .Get(ProviderId);
+
+        // Assert
+        options.EmbeddingsBaseUrl.Should().Be("https://consumer.example.com/");
+    }
+
+    [Fact]
     public void MessagesApiPrimary_MessagesEntryFillsMessagesEndpoint_LeavesChatUntouched()
     {
         // Arrange

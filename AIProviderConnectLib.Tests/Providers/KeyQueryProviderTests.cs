@@ -33,6 +33,33 @@ public class KeyQueryProviderTests
         return (new KeyQueryProvider(httpClient, options, catalog, "gemini"), handler);
     }
 
+    [Fact]
+    public async Task ChatAsync_NonAbsoluteBaseUrl_ThrowsInvalidRequest()
+    {
+        // Arrange — a scheme-less base URL is rejected with a structured AiException rather than
+        // leaking a raw UriFormatException from request construction
+        var handler = new CapturingHttpMessageHandler(GeminiResponse);
+        var provider = new KeyQueryProvider(new HttpClient(handler), new KeyQueryOptions
+        {
+            BaseUrl = "relative.example.com/v1/",
+            ApiKey = "fake-api-key",
+            Enabled = true,
+            CustomAuthHeaderName = "x-goog-api-key"
+        }, new ProviderCatalog(), "gemini");
+
+        // Act
+        Func<Task> act = () => provider.ChatAsync(new ChatCompletionRequest
+        {
+            Model = "test-model",
+            Messages = [new ChatMessage { Role = EChatRole.User, Content = "Hello" }]
+        });
+
+        // Assert
+        var ex = (await act.Should().ThrowAsync<AiException>()).Which;
+        ex.Code.Should().Be(AiErrorCodes.InvalidRequest);
+        ex.Message.Should().Contain("is not a valid absolute URL");
+    }
+
     [Theory]
     [InlineData("https://test.example.com/v1", "chat", "models/test-model:generateContent")]
     [InlineData("https://test.example.com/v1/", "chat", "models/test-model:generateContent")]

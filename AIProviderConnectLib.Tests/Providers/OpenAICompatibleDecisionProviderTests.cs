@@ -121,6 +121,23 @@ public class OpenAICompatibleDecisionProviderTests
     }
 
     [Fact]
+    public async Task DecideAsync_NonAbsoluteOverride_ThrowsInvalidRequest()
+    {
+        // Arrange — a scheme-less decisions override must be rejected as AiException before
+        // request build, mirroring the embeddings surface
+        using var handler = new CapturingHttpMessageHandler(DecisionResponseJson);
+        var provider = Create(handler, Options(decisionsBaseUrl: "decisions.example.com/"));
+
+        // Act
+        Func<Task> act = () => provider.DecideAsync(DecisionRequestSample());
+
+        // Assert
+        var ex = (await act.Should().ThrowAsync<AIProviderConnect.Exceptions.AiException>()).Which;
+        ex.Code.Should().Be(AIProviderConnect.Exceptions.AiErrorCodes.InvalidRequest);
+        ex.Message.Should().Contain("is not a valid absolute URL");
+    }
+
+    [Fact]
     public async Task ChatAsync_InheritedTransport_UsesChatEndpointUnderCommonBase()
     {
         // Arrange
@@ -233,6 +250,7 @@ public class OpenAICompatibleDecisionProviderTests
         public string ModelsEndpoint { get; set; } = EndpointDefaults.Models;
         public string EmbeddingsEndpoint { get; set; } = EndpointDefaults.Embeddings;
         public string DefaultEmbeddingModel { get; set; } = string.Empty;
+        public string? EmbeddingsBaseUrl { get; set; }
     }
 
     [Fact]
