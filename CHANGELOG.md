@@ -5,7 +5,21 @@ All notable changes to this project will be documented in this file. Date format
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+This file records changes to the **`AIProviderConnect` NuGet package** — the library, its wire
+protocols, the provider catalog, and the published documentation, because its `## [X.Y.Z]`
+section becomes the package's release notes. Changes to ScraperTool, the desktop research tool
+that is mirrored as source but never installed with the package, belong in
+[ScraperTool/CHANGELOG.md](ScraperTool/CHANGELOG.md).
+
 ## [Unreleased]
+
+### Added
+- Optional decision-model capability via `IDecisionProvider` (`SupportsDecisions`, `DecideAsync`): a provider answers typed questions about application state with probabilities rather than chat prose. Supports `Choice`, `Noul` (yes/no), and `Score` question kinds with typed answers (`ChoiceAnswer`, `NoulAnswer`, `ScoreAnswer`), a new `EProviderProtocol.Decision` wire protocol (JSON value `"decision"`), an `EModelCapability.Decision` flag for call-free discovery, `DecisionProviderOptions` (configurable `alpha/decisions` endpoint and optional decisions base-URL override), and dedicated error codes (`ai/chat-not-supported`, `ai/decision-not-supported`). A decision provider rejects `ChatAsync`; per-request credentials, retry, and error classification behave as they do for chat
+- `UsageInfo.Cost` (USD, nullable) reports a per-call cost when the provider returns one; existing protocols leave it unset
+- Optional per-operation `endpoints` block on `ProviderDefinition` for multi-protocol providers: each entry (keys `chat`, `models`, `messages`, `embeddings`, `decisions`, matched case-insensitively) carries a relative `path`, an optional `baseUrl` override used only when the surface sits on a different root than the definition's common base, and an optional `protocol` override with nullable-aware JSON conversion. Endpoint paths fold into the named options at registration time with a documented precedence (defaults, flat field, `endpoints` entry, consumer `Configure`), and malformed entries (unknown operation key, absolute path, non-HTTPS override, an entry that changes nothing, an unservable `decisions` override, or a KeyQuery `chat` path without a `{model}` placeholder) fail registration fast. An `OpenAICompatible`/`HybridGateway` provider declaring a `decisions` entry with `protocol: "decision"` registers the combined `OpenAICompatibleDecisionProvider` — one provider id serving chat, streaming, model discovery, embeddings, and decisions — and the model-override decorator chain stays capability-transparent for it
+
+### Fixed
+- Documentation and IntelliSense no longer conflate capabilities with modalities: `EModelCapability` is described as *what a model may be asked to do*, distinct from `AIModel.Modality` (*which data types flow in and out*), with the rule that a modality never implies a capability. Both now state that model discovery reports no capability flags — `None` means nothing was said, not that the model cannot do it — and that consumers declare the flags they rely on through `ModelOverride.Capabilities`, replacing a published `HasFlag(EModelCapability.ToolCalling)` example that returned `false` for every discovered model without any warning. `Decision` is now listed with the other capability members
 
 ## [1.1.0] - 2026-09-28
 

@@ -5,7 +5,7 @@
 
 A unified .NET library for connecting to **35+ AI providers** (OpenAI, Anthropic, Gemini, Ollama, Groq, Mistral, xAI and more) through a single `IAIProvider` interface — with runtime model discovery, streaming, tool calling, and full DI support.
 
-Instead of one class per provider, the library ships **five wire protocols and four provider implementations** and an embedded JSON catalog: each provider definition declares its wire protocol, and the right implementation is selected automatically.
+Instead of one class per provider, the library ships **six wire protocols and five provider implementations** and an embedded JSON catalog: each provider definition declares its wire protocol, and the right implementation is selected automatically.
 
 ## Supported Providers
 
@@ -16,6 +16,7 @@ Instead of one class per provider, the library ships **five wire protocols and f
 | Key query (Google-style) | `KeyQueryProvider` | gemini |
 | Model catalog (GitHub Models-style) | `ModelCatalogProvider` | *(no embedded entry — protocol exists for consumer-supplied providers)* |
 | Hybrid gateway | `OpenAICompatibleProvider` | opencode-go, opencode-zen |
+| Decision (typed questions) | `DecisionProvider` | *(no embedded entry — consumer-supplied via DI)* |
 
 Full list and metadata: `AIProviderConnectLib/ai-providers/*.json`.
 
@@ -182,11 +183,11 @@ All failures throw `AiException` with a stable `Code` (e.g. `ai/rate-limited`, `
 
 ```
 AIProviderConnectLib/
-├── Abstractions/        IAIProvider, IStreamingChatProvider, IModelDiscoveryProvider, IProviderCatalog, IAIProviderFactory
+├── Abstractions/        IAIProvider, IStreamingChatProvider, IModelDiscoveryProvider, IEmbeddingProvider, IDecisionProvider, IProviderCatalog, IAIProviderFactory
 ├── Models/              Request, response, message, tool, streaming, and catalog models
 ├── Options/             AIProviderOptions base + per-protocol options classes
 ├── Protocols/           OpenAI-compatible and Messages API wire protocol mappers
-├── Providers/           AIProviderBase + 4 protocol-specific provider implementations
+├── Providers/           AIProviderBase + 5 protocol-specific provider implementations
 ├── Services/            ProviderCatalog (embedded JSON provider definitions)
 ├── ai-providers/        Provider definition JSON files
 └── DependencyInjection/ AddAiProviders() extension method
@@ -209,4 +210,6 @@ MIT — see [LICENSE.txt](LICENSE.txt)
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md)
+Package releases: [CHANGELOG.md](CHANGELOG.md)
+
+ScraperTool — the desktop tool, which ships as source and not inside the package — keeps its own record at [ScraperTool/CHANGELOG.md](ScraperTool/CHANGELOG.md)

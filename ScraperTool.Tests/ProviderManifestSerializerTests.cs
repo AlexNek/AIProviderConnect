@@ -105,4 +105,94 @@ public class ProviderManifestSerializerTests
         result1.Should().NotBeSameAs(result2);
         result1["id"]!.GetValue<string>().Should().Be(result2["id"]!.GetValue<string>());
     }
+
+    [Fact]
+    public void Flatten_WithEndpoints_RoundTripsThroughDefinition()
+    {
+        // Arrange — the manual editor's save path: Flatten serializes the definition
+        // record, so a carried endpoints block must write through and survive a
+        // ProviderDefinition round-trip.
+        var definition = CreateDefinition() with
+        {
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["decisions"] = new EndpointDefinition
+                {
+                    Path = "alpha/decisions",
+                    BaseUrl = "https://api.test.example.com/api/",
+                    Protocol = EProviderProtocol.Decision
+                }
+            }
+        };
+
+        // Act
+        var flattened = ProviderManifestSerializer.Flatten(definition, CreateResearch());
+        var json = flattened.ToJsonString();
+        var roundTripped = System.Text.Json.JsonSerializer.Deserialize<ProviderDefinition>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        // Assert
+        var entry = roundTripped!.Endpoints!["decisions"]!;
+        entry.Path.Should().Be("alpha/decisions");
+        entry.BaseUrl.Should().Be("https://api.test.example.com/api/");
+        entry.Protocol.Should().Be(EProviderProtocol.Decision);
+    }
+
+    [Fact]
+    public void Flatten_WithoutEndpoints_WritesNoEndpointsMember()
+    {
+        // Arrange & Act
+        var flattened = ProviderManifestSerializer.Flatten(CreateDefinition(), CreateResearch());
+
+        // Assert
+        flattened.ContainsKey("endpoints").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Flatten_EndpointsOwnedOperations_DropLegacyFlatMembers()
+    {
+        // Arrange — an openrouter-style migrated manifest: chat/models live only in
+        // endpoints, so the definition's default flat values must not be re-emitted
+        // alongside the block on save.
+        var definition = CreateDefinition() with
+        {
+            ChatEndpoint = "chat/completions",
+            ModelsEndpoint = "models",
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["chat"] = new EndpointDefinition { Path = "chat/completions" },
+                ["models"] = new EndpointDefinition { Path = "models" },
+                ["decisions"] = new EndpointDefinition { Path = "alpha/decisions" }
+            }
+        };
+
+        // Act
+        var flattened = ProviderManifestSerializer.Flatten(definition, null);
+
+        // Assert
+        flattened.ContainsKey("chatEndpoint").Should().BeFalse();
+        flattened.ContainsKey("modelsEndpoint").Should().BeFalse();
+        // messages is not owned by the block in this fixture, so its flat member stays
+        flattened.ContainsKey("messagesEndpoint").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Flatten_EndpointsWithoutChat_KeepsFlatChatEndpoint()
+    {
+        // Arrange — the flat member is only dropped when the endpoints block owns
+        // that operation; decisions-only entries must not strip chatEndpoint.
+        var definition = CreateDefinition() with
+        {
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["decisions"] = new EndpointDefinition { Path = "alpha/decisions" }
+            }
+        };
+
+        // Act
+        var flattened = ProviderManifestSerializer.Flatten(definition, null);
+
+        // Assert
+        flattened.ContainsKey("chatEndpoint").Should().BeTrue();
+        flattened.ContainsKey("modelsEndpoint").Should().BeTrue();
+    }
 }

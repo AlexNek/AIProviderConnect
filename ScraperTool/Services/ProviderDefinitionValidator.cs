@@ -214,6 +214,66 @@ public sealed class ProviderDefinitionValidator
             }
         }
 
+        // Per-operation endpoint overrides: each entry's composed URL — its baseUrl
+        // override when present, otherwise the definition baseUrl, plus its path — is
+        // checked with the root baseUrl's API-surface treatment (2xx API probe and
+        // reachability classifications, never the web-page/pricing/login judgments and
+        // no models-endpoint fallback) under the label 'endpoints.<operation>.path',
+        // so the finding reaches the sidecar, the editor's validation state, and the
+        // AI-fix pipeline like any root field.
+        if (root.TryGetProperty(ProviderJsonFields.Endpoints, out var endpointsEl)
+            && endpointsEl.ValueKind == JsonValueKind.Object)
+        {
+            string? definitionBaseUrl =
+                root.TryGetProperty(ProviderJsonFields.BaseUrl, out var baseEl)
+                && baseEl.ValueKind == JsonValueKind.String
+                    ? baseEl.GetString()
+                    : null;
+
+            foreach (var entry in endpointsEl.EnumerateObject())
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (entry.Value.ValueKind != JsonValueKind.Object) continue;
+
+                var path =
+                    entry.Value.TryGetProperty("path", out var pathEl)
+                    && pathEl.ValueKind == JsonValueKind.String
+                        ? pathEl.GetString()
+                        : null;
+                if (string.IsNullOrWhiteSpace(path)) continue;
+
+                var baseUrlOverride =
+                    entry.Value.TryGetProperty("baseUrl", out var overrideEl)
+                    && overrideEl.ValueKind == JsonValueKind.String
+                        ? overrideEl.GetString()
+                        : null;
+
+                var composedBase = string.IsNullOrWhiteSpace(baseUrlOverride)
+                    ? definitionBaseUrl
+                    : baseUrlOverride;
+                if (string.IsNullOrWhiteSpace(composedBase)
+                    || !Uri.TryCreate(composedBase, UriKind.Absolute, out var baseUri)) continue;
+
+                var composed = new Uri(new Uri(baseUri, path.TrimStart('/')).AbsoluteUri);
+
+                var context = new FieldCheckContext(
+                    fileName,
+                    $"{ProviderJsonFields.Endpoints}.{entry.Name}.path",
+                    composed.AbsoluteUri,
+                    composed,
+                    root,
+                    sink,
+                    ct)
+                {
+                    UseLocalProviders = useLocalProviders,
+                    Applicability = applicability
+                };
+
+                await _fieldChecker.CheckFieldAsync(context);
+            }
+        }
+
         // Check that non-self-hosted providers have subscriptionPricingUrl configured
         await _subscriptionConfiguredChecker.ValidateAsync(root, fileName, sink, ct);
 

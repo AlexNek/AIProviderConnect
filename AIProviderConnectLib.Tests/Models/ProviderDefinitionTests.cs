@@ -283,4 +283,56 @@ public class ProviderDefinitionTests
         var act = () => JsonSerializer.Deserialize<ProviderDefinition>(json, JsonOptions);
         act.Should().Throw<System.Text.Json.JsonException>();
     }
+
+    [Fact]
+    public void Endpoints_RoundTrip_PreservesEntries()
+    {
+        // Arrange
+        var original = new ProviderDefinition
+        {
+            Id = "endpoints-test",
+            DisplayName = "Endpoints Test",
+            Protocol = EProviderProtocol.OpenAICompatible,
+            BaseUrl = "https://test.example.com/api/v1/",
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["decisions"] = new EndpointDefinition
+                {
+                    Path = "alpha/decisions",
+                    BaseUrl = "https://test.example.com/api/",
+                    Protocol = EProviderProtocol.Decision
+                }
+            }
+        };
+
+        // Act
+        var json = JsonSerializer.Serialize(original, JsonOptions);
+        var deserialized = JsonSerializer.Deserialize<ProviderDefinition>(json, JsonOptions);
+
+        // Assert
+        deserialized!.Endpoints.Should().NotBeNull();
+        var entry = deserialized.Endpoints!["decisions"];
+        entry.Path.Should().Be("alpha/decisions");
+        entry.BaseUrl.Should().Be("https://test.example.com/api/");
+        entry.Protocol.Should().Be(EProviderProtocol.Decision);
+    }
+
+    [Fact]
+    public void Serialize_EndpointsAbsent_WritesNoEndpointsMember()
+    {
+        // Arrange
+        var definition = new ProviderDefinition
+        {
+            Id = "plain-provider",
+            DisplayName = "Without Endpoints",
+            Protocol = EProviderProtocol.OpenAICompatible,
+            BaseUrl = "https://test.example.com/"
+        };
+
+        // Act
+        var json = JsonSerializer.Serialize(definition, JsonOptions);
+
+        // Assert
+        json.Should().NotContain("endpoints");
+    }
 }

@@ -1,7 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using AIProviderConnect.Constants;
 using AIProviderConnect.Models;
+
+using ScraperTool.Models;
 
 namespace ScraperTool.Services;
 
@@ -20,6 +23,16 @@ public static class ProviderManifestSerializer
     {
         var manifest = JsonSerializer.SerializeToNode(definition)?.AsObject() ?? new JsonObject();
 
+        // An operation carried in the endpoints block owns its wire path; the legacy
+        // flat member is not written alongside it so migrated manifests stay
+        // free of duplicate endpoint data.
+        if (definition.Endpoints is not null)
+        {
+            RemoveOwnedFlatEndpoint(definition, manifest, EndpointOperations.Chat, ProviderJsonFields.ChatEndpoint);
+            RemoveOwnedFlatEndpoint(definition, manifest, EndpointOperations.Models, ProviderJsonFields.ModelsEndpoint);
+            RemoveOwnedFlatEndpoint(definition, manifest, EndpointOperations.Messages, ProviderJsonFields.MessagesEndpoint);
+        }
+
         if (research is not null)
         {
             var researchNode = JsonSerializer.SerializeToNode(research)?.AsObject();
@@ -33,5 +46,18 @@ public static class ProviderManifestSerializer
         }
 
         return manifest;
+    }
+
+    private static void RemoveOwnedFlatEndpoint(
+        ProviderDefinition definition,
+        JsonObject manifest,
+        string operation,
+        string flatField)
+    {
+        if (EndpointOperations.Find(definition.Endpoints, operation) is not null
+            && manifest.ContainsKey(flatField))
+        {
+            manifest.Remove(flatField);
+        }
     }
 }

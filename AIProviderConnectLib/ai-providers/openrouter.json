@@ -8,8 +8,6 @@
   "subscriptionPricingUrl": "-",
   "documentationUrl": "https://openrouter.ai/docs/api/reference/overview",
   "baseUrl": "https://openrouter.ai/api/v1/",
-  "chatEndpoint": "chat/completions",
-  "modelsEndpoint": "models",
   "supportsStructuredOutput": true,
   "category": "MultiModelAggregator",
   "modelDescription": "400\u002B models from 60\u002B providers",
@@ -22,5 +20,18 @@
   "pricingNotes": "No markup on underlying provider pricing",
   "minModelCount": 400,
   "supportsFineTuning": false,
-  "isDynamicModelCatalog": false
+  "isDynamicModelCatalog": false,
+  "endpoints": {
+    "chat": {
+      "path": "chat/completions"
+    },
+    "models": {
+      "path": "models"
+    },
+    "decisions": {
+      "path": "alpha/decisions",
+      "baseUrl": "https://openrouter.ai/api/",
+      "protocol": "decision"
+    }
+  }
 }

@@ -69,6 +69,35 @@ public interface IEmbeddingProvider
 }
 ```
 
+## IDecisionProvider
+
+Optional decision-model capability — see [Decision Models](../decisions/decision-models.md).
+A decision provider answers typed questions about application state with
+probabilities and rejects `ChatAsync` with `ai/chat-not-supported`.
+
+```csharp
+public interface IDecisionProvider
+{
+    bool SupportsDecisions { get; }
+
+    Task<DecisionResponse> DecideAsync(
+        DecisionRequest request,
+        CancellationToken cancellationToken = default);
+}
+```
+
+### OpenAICompatibleDecisionProvider
+
+A combined implementation registered for an `OpenAICompatible` or
+`HybridGateway` definition whose `endpoints` block declares a `decisions`
+entry with `protocol: "decision"`. It implements `IAIProvider`,
+`IStreamingChatProvider`, `IModelDiscoveryProvider`, `IEmbeddingProvider`,
+**and** `IDecisionProvider`, so a single provider id answers every
+capability query. Its `IAIProvider.Protocol` reports the definition's root
+protocol (`OpenAICompatible`/`HybridGateway`), not `Decision` — the enum
+value describes the chat wire, while the decisions surface is selected by
+the `endpoints` entry. `SupportsDecisions` is `true`.
+
 ## IModelOverrideStore
 
 Consumer-supplied source of `ModelOverride` entries, keyed by provider id.
@@ -146,9 +175,11 @@ public interface ICredentialResolver
 
 ## AIProviderBase
 
-Abstract base class behind all four provider implementations. Implements
+Abstract base class behind every provider implementation. Implements
 `IAIProvider` and `IModelDiscoveryProvider`, provides SSE reading, header
-and auth helpers, and the centralized HTTP error translation
+and auth helpers, the shared transports (`SendChatAndParseAsync`,
+`SendGetModelsAndParseAsync`, `SendEmbeddingsAndParseAsync`,
+`SendDecisionAndParseAsync`), and the centralized HTTP error translation
 (`ThrowIfErrorAsync`). OpenAI-compatible providers inherit shared request
 transport from `OpenAICompatibleProviderBase`; protocol-specific request
 building and parsing live in the `Protocols/` wire-protocol types.

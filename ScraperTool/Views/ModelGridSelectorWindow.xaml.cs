@@ -5,6 +5,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
+using AIProviderConnect.Models;
+
 using ScraperTool.Models;
 
 namespace ScraperTool.Views;
@@ -13,26 +15,79 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private string _filterText = string.Empty;
+    private string _nameFilterText = string.Empty;
+
+    private string _descriptionFilterText = string.Empty;
 
     private string? _initialSelectionId;
 
+    private string _sourceLabel = string.Empty;
+
     private string? _modalityFilterToken;
+
+    private EModelCapability? _capabilityFilterFlag;
 
     public ObservableCollection<ModelSelectionItem> AllModels { get; } = [];
 
     public ObservableCollection<ModelSelectionItem> FilteredModels { get; } = [];
 
-    public string FilterText
+    /// <summary>
+    /// The "Filter by name or owner" box. It is allowed to hold a pasted model id (`openai/gpt-4o`),
+    /// which is why the searched text is split into <see cref="NameQuery"/> and
+    /// <see cref="OwnerQuery"/> rather than matched against the joined id.
+    /// </summary>
+    public string NameFilterText
     {
-        get => _filterText;
+        get => _nameFilterText;
         set
         {
-            _filterText = value;
+            _nameFilterText = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(NameQuery));
+            OnPropertyChanged(nameof(OwnerQuery));
             ApplyFilter();
         }
     }
+
+    /// <summary>The "Filter by description" box; feeds the Description column's highlight.</summary>
+    public string DescriptionFilterText
+    {
+        get => _descriptionFilterText;
+        set
+        {
+            _descriptionFilterText = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(DescriptionQuery));
+            ApplyFilter();
+        }
+    }
+
+    // Half of the name/owner box that belongs to the Name column. Empty when the box is empty or the
+    // query was a bare "owner/", so the column is then neither filtered nor painted.
+    public string NameQuery
+    {
+        get
+        {
+            var q = TrimmedNameFilter;
+            var slash = q.LastIndexOf('/');
+            return slash < 0 ? q : q[(slash + 1)..];
+        }
+    }
+
+    // Half of the name/owner box that belongs to the Owner column.
+    public string OwnerQuery
+    {
+        get
+        {
+            var q = TrimmedNameFilter;
+            var slash = q.LastIndexOf('/');
+            return slash < 0 ? q : q[..slash];
+        }
+    }
+
+    public string DescriptionQuery => _descriptionFilterText.Trim();
+
+    private string TrimmedNameFilter => _nameFilterText.Trim();
 
     public ModelSelectionItem? SelectedItem { get; private set; }
 
@@ -44,7 +99,8 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 
     public void LoadModels(
         IEnumerable<ModelSelectionItem> models,
-        string? initialSelectionId = null)
+        string? initialSelectionId = null,
+        string? sourceLabel = null)
     {
         AllModels.Clear();
         FilteredModels.Clear();
@@ -55,15 +111,31 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         }
 
         _initialSelectionId = initialSelectionId;
+        _sourceLabel = sourceLabel ?? string.Empty;
+        UpdateModelCount();
+    }
+
+    // States how many rows the grid is showing and which provider they came from, directly above the
+    // list, so a filtered or partial list is visible instead of something the user has to trust.
+    private void UpdateModelCount()
+    {
+        if (ModelCountLabel is null)
+            return;
+
+        var total = AllModels.Count;
+        var shown = FilteredModels.Count;
+        var counts = shown == total ? $"{total} models" : $"{shown} of {total} models shown";
+        ModelCountLabel.Text = _sourceLabel.Length > 0 ? $"{_sourceLabel} — {counts}" : counts;
     }
 
     private void ApplyDefaultPriceSort()
     {
-        // Sort by prompt price first, then completion price, then id.
+        // Sort by prompt price first, then completion price, then model name — the name, not the full
+        // id, so equal-priced models from one owner are not interleaved by their owner prefix.
         var sorted = FilteredModels
             .OrderBy(m => ParsePrice(m.PromptPrice))
             .ThenBy(m => ParsePrice(m.CompletionPrice))
-            .ThenBy(m => m.Id)
+            .ThenBy(m => m.Name)
             .ToList();
 
         FilteredModels.Clear();
@@ -73,27 +145,49 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 
     private void ApplyFilter()
     {
-        var q = _filterText.Trim();
+        var nameQuery = NameQuery;
+        var ownerQuery = OwnerQuery;
+        var descriptionQuery = DescriptionQuery;
+
+        // A query holding a slash is a whole model id, so both halves have to match; otherwise the box
+        // is "name or owner" and either column is enough.
+        var isPastedId = TrimmedNameFilter.Contains('/');
+
         FilteredModels.Clear();
         foreach (var m in AllModels)
         {
-            var matchesText = q.Length == 0 ||
-                              m.Id.Contains(q, StringComparison.OrdinalIgnoreCase) ||
-                              (m.Description?.Contains(q, StringComparison.OrdinalIgnoreCase)
-                               ?? false) ||
-                              (m.OwnedBy?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
-                              ||
-                              (m.Modalities?.Contains(q, StringComparison.OrdinalIgnoreCase)
-                               ?? false);
+            // Each box reads only the columns it paints: the name/owner box sees the Name and Owner
+            // cells, the description box sees the Description cell, and modality and capability have
+            // their own dropdowns. No filter can therefore match text that is absent from the row.
+            var matchesName = nameQuery.Length == 0 ||
+                              m.Name.Contains(nameQuery, StringComparison.OrdinalIgnoreCase);
+
+            var matchesOwner = ownerQuery.Length == 0 ||
+                               (m.OwnedBy?.Contains(ownerQuery, StringComparison.OrdinalIgnoreCase)
+                                ?? false);
+
+            var matchesIdentity = isPastedId
+                ? matchesName && matchesOwner
+                : matchesName || matchesOwner;
+
+            var matchesDescription = descriptionQuery.Length == 0 ||
+                                     (m.Description?.Contains(
+                                          descriptionQuery, StringComparison.OrdinalIgnoreCase)
+                                      ?? false);
 
             var matchesModality = string.IsNullOrWhiteSpace(_modalityFilterToken) ||
                                   (m.Modalities?.Contains(
                                        _modalityFilterToken,
                                        StringComparison.OrdinalIgnoreCase) ?? false);
 
-            if (matchesText && matchesModality)
+            var matchesCapability = !_capabilityFilterFlag.HasValue ||
+                                    m.Capabilities.HasFlag(_capabilityFilterFlag.Value);
+
+            if (matchesIdentity && matchesDescription && matchesModality && matchesCapability)
                 FilteredModels.Add(m);
         }
+
+        UpdateModelCount();
     }
 
     private void ApplyInitialSelection()
@@ -126,8 +220,10 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         var col = ModelGrid.CurrentCell.Column;
         var value = col.Header?.ToString() switch
             {
-                "Model ID" => row.Id,
+                "Name" => row.Id,
+                "Owner" => row.OwnedBy ?? string.Empty,
                 "Modalities" => row.Modalities,
+                "Capabilities" => row.CapabilitiesText,
                 "Context" => row.ContextWindow,
                 "Prompt, $/1M" => row.PromptPrice,
                 "Completion, $/1M" => row.CompletionPrice,
@@ -144,7 +240,7 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         if (ModelGrid.SelectedItem is not ModelSelectionItem row) return;
 
         var text =
-            $"{row.Id}\t{row.Modalities}\t{row.ContextWindow}\t{row.PromptPrice}\t{row.CompletionPrice}\t{row.Description}";
+            $"{row.Id}\t{row.OwnedBy}\t{row.Modalities}\t{row.ContextWindow}\t{row.PromptPrice}\t{row.CompletionPrice}\t{row.Description}";
         Clipboard.SetText(text);
     }
 
@@ -168,6 +264,34 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         }
     }
 
+    private void OnCapabilitySelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CapabilityFilter.SelectedItem is ComboBoxItem item)
+        {
+            var content = item.Content?.ToString();
+            _capabilityFilterFlag = content switch
+                {
+                    "All" => null,
+                    "Text Generation" => EModelCapability.TextGeneration,
+                    "Structured Output" => EModelCapability.StructuredOutput,
+                    "Tool Calling" => EModelCapability.ToolCalling,
+                    "Embedding" => EModelCapability.Embedding,
+                    "Reranker" => EModelCapability.Reranker,
+                    "Image Recognition" => EModelCapability.ImageRecognition,
+                    "Image Generation" => EModelCapability.ImageGeneration,
+                    "Audio Recognition" => EModelCapability.AudioRecognition,
+                    "Text to Speech" => EModelCapability.TextToSpeech,
+                    "Audio Generation" => EModelCapability.AudioGeneration,
+                    "Video Transcription" => EModelCapability.VideoTranscription,
+                    "Video Recognition" => EModelCapability.VideoRecognition,
+                    "Video Generation" => EModelCapability.VideoGeneration,
+                    "Decision" => EModelCapability.Decision,
+                    _ => null
+                };
+            ApplyFilter();
+        }
+    }
+
     private void OnModelGridLoaded(object sender, RoutedEventArgs e)
     {
         // Ensure stable default sort by prompt price
@@ -176,7 +300,27 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         // If ItemsSource is an ObservableCollection, WPF sorting needs a view.
         // We'll re-apply sorting by replacing the collection in code-behind.
         ApplyDefaultPriceSort();
+        UpdateCapabilityFilterAvailability();
         ApplyInitialSelection();
+    }
+
+    // Capability flags are provider-reported data. Model discovery leaves them unset today, so the
+    // filter would match a column nobody can see and hide every row without an on-screen reason.
+    private void UpdateCapabilityFilterAvailability()
+    {
+        var reported = AllModels.Count(m => m.Capabilities != EModelCapability.None);
+        CapabilityFilter.IsEnabled = reported > 0;
+
+        if (AllModels.Count > 0 && reported < AllModels.Count)
+        {
+            CapabilityHint.Text = reported == 0
+                ? "These models report no capabilities, so capability filtering is unavailable."
+                : "Only part of the list reports capabilities — rows without them are excluded.";
+            CapabilityHint.Visibility = Visibility.Visible;
+            return;
+        }
+
+        CapabilityHint.Visibility = Visibility.Collapsed;
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>

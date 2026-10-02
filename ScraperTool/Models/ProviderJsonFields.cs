@@ -10,6 +10,7 @@ public static class ProviderJsonFields
     public const string ChatEndpoint = "chatEndpoint";
     public const string DisplayName = "displayName";
     public const string DocumentationUrl = "documentationUrl";
+    public const string Endpoints = "endpoints";
     public const string HasFreeTier = "hasFreeTier";
     public const string HasModelDiscoveryApi = "hasModelDiscoveryApi";
     public const string Id = "id";
@@ -17,6 +18,7 @@ public static class ProviderJsonFields
     public const string LoginUrl = "loginUrl";
     public const string MinimumCommitment = "minimumCommitment";
     public const string MinModelCount = "minModelCount";
+    public const string MessagesEndpoint = "messagesEndpoint";
     public const string ModelDescription = "modelDescription";
     public const string ModelDiscoveryNotes = "modelDiscoveryNotes";
     public const string ModelsEndpoint = "modelsEndpoint";

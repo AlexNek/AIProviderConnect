@@ -113,7 +113,7 @@ public static class AIProviderServiceCollectionExtensions
             if (manuallyRegisteredIds is not null && manuallyRegisteredIds.Contains(provider.Id))
                 continue;
 
-            RegisterProvider(services, catalog, provider.Id, provider.Protocol);
+            RegisterProvider(services, catalog, provider);
         }
 
         // Consumer named-options callbacks are applied after seeding so their values win.
@@ -133,26 +133,66 @@ public static class AIProviderServiceCollectionExtensions
         if (!string.IsNullOrEmpty(definition.BaseUrl))
             options.BaseUrl = definition.BaseUrl;
 
-        switch (options)
+        // Independent `is` checks, not a switch: OpenAICompatibleProviderOptions matches
+        // IChatAndModelsEndpointOptions first, so an appended interface arm would be unreachable.
+        if (options is IChatAndModelsEndpointOptions chatModels)
         {
-            case IChatAndModelsEndpointOptions chatModels:
-                if (!string.IsNullOrEmpty(definition.ChatEndpoint))
-                    chatModels.ChatEndpoint = definition.ChatEndpoint;
-                if (!string.IsNullOrEmpty(definition.ModelsEndpoint))
-                    chatModels.ModelsEndpoint = definition.ModelsEndpoint;
-                break;
+            if (!string.IsNullOrEmpty(definition.ChatEndpoint))
+                chatModels.ChatEndpoint = definition.ChatEndpoint;
+            if (!string.IsNullOrEmpty(definition.ModelsEndpoint))
+                chatModels.ModelsEndpoint = definition.ModelsEndpoint;
 
-            case MessagesApiOptions messages:
-                if (!string.IsNullOrEmpty(definition.MessagesEndpoint))
-                    messages.MessagesEndpoint = definition.MessagesEndpoint;
-                if (!string.IsNullOrEmpty(definition.ModelsEndpoint))
-                    messages.ModelsEndpoint = definition.ModelsEndpoint;
-                break;
+            var chat = EndpointOperations.Find(definition.Endpoints, EndpointOperations.Chat);
+            if (!string.IsNullOrEmpty(chat?.Path))
+                chatModels.ChatEndpoint = chat.Path;
 
-            case KeyQueryOptions keyQuery:
-                if (!string.IsNullOrEmpty(definition.ModelsEndpoint))
-                    keyQuery.ModelsEndpoint = definition.ModelsEndpoint;
-                break;
+            var models = EndpointOperations.Find(definition.Endpoints, EndpointOperations.Models);
+            if (!string.IsNullOrEmpty(models?.Path))
+                chatModels.ModelsEndpoint = models.Path;
+        }
+
+        if (options is MessagesApiOptions messages)
+        {
+            if (!string.IsNullOrEmpty(definition.MessagesEndpoint))
+                messages.MessagesEndpoint = definition.MessagesEndpoint;
+            if (!string.IsNullOrEmpty(definition.ModelsEndpoint))
+                messages.ModelsEndpoint = definition.ModelsEndpoint;
+
+            // The `messages` operation entry maps to MessagesEndpoint for a MessagesApi primary;
+            // its ChatEndpoint (if any) is left untouched.
+            var messagesEntry = EndpointOperations.Find(definition.Endpoints, EndpointOperations.Messages);
+            if (!string.IsNullOrEmpty(messagesEntry?.Path))
+                messages.MessagesEndpoint = messagesEntry.Path;
+
+            var messagesModels = EndpointOperations.Find(definition.Endpoints, EndpointOperations.Models);
+            if (!string.IsNullOrEmpty(messagesModels?.Path))
+                messages.ModelsEndpoint = messagesModels.Path;
+        }
+
+        if (options is KeyQueryOptions keyQuery)
+        {
+            if (!string.IsNullOrEmpty(definition.ModelsEndpoint))
+                keyQuery.ModelsEndpoint = definition.ModelsEndpoint;
+
+            var keyQueryModels = EndpointOperations.Find(definition.Endpoints, EndpointOperations.Models);
+            if (!string.IsNullOrEmpty(keyQueryModels?.Path))
+                keyQuery.ModelsEndpoint = keyQueryModels.Path;
+        }
+
+        if (options is IEmbeddingsEndpointOptions embeddings)
+        {
+            var embeddingsEntry = EndpointOperations.Find(definition.Endpoints, EndpointOperations.Embeddings);
+            if (!string.IsNullOrEmpty(embeddingsEntry?.Path))
+                embeddings.EmbeddingsEndpoint = embeddingsEntry.Path;
+        }
+
+        if (options is IDecisionsEndpointOptions decisions)
+        {
+            var decisionsEntry = EndpointOperations.Find(definition.Endpoints, EndpointOperations.Decisions);
+            if (!string.IsNullOrEmpty(decisionsEntry?.Path))
+                decisions.DecisionsEndpoint = decisionsEntry.Path;
+            if (!string.IsNullOrEmpty(decisionsEntry?.BaseUrl))
+                decisions.DecisionsBaseUrl = decisionsEntry.BaseUrl;
         }
 
         // Copy protocol-specific configuration generically — no key knowledge here.
@@ -201,9 +241,15 @@ public static class AIProviderServiceCollectionExtensions
     private static void RegisterProvider(
         IServiceCollection services,
         ProviderCatalog providerCatalog,
-        string providerId,
-        EProviderProtocol protocol)
+        ProviderDefinition provider)
     {
+        var providerId = provider.Id;
+        var protocol = provider.Protocol;
+
+        // Runs for every catalog entry, embedded and consumer-supplied alike, before any
+        // class selection reads the endpoints block.
+        EndpointConfiguration.Validate(providerId, provider);
+
         switch (protocol)
         {
             case EProviderProtocol.Native:
@@ -214,6 +260,12 @@ public static class AIProviderServiceCollectionExtensions
                     "automatic registration.");
 
             case EProviderProtocol.OpenAICompatible:
+                if (EndpointConfiguration.TryGetDecisionsOverride(provider, out _))
+                {
+                    RegisterDecisionCombination<OpenAICompatibleProviderOptions>(services, providerCatalog, providerId);
+                    break;
+                }
+
                 Register<OpenAICompatibleProviderOptions, OpenAICompatibleProvider>(services, providerCatalog, providerId,
                                     (client, options, catalog, pid, logger, resolver) => new OpenAICompatibleProvider(client, options, catalog, pid, logger, resolver));
                 break;
@@ -226,6 +278,12 @@ public static class AIProviderServiceCollectionExtensions
                 break;
 
             case EProviderProtocol.HybridGateway:
+                if (EndpointConfiguration.TryGetDecisionsOverride(provider, out _))
+                {
+                    RegisterDecisionCombination<HybridGatewayProviderOptions>(services, providerCatalog, providerId);
+                    break;
+                }
+
                 Register<HybridGatewayProviderOptions, OpenAICompatibleProvider>(services, providerCatalog, providerId,
                                     (client, options, catalog, pid, logger, resolver) => new OpenAICompatibleProvider(client, options, catalog, pid, logger, resolver));
                 break;
@@ -244,9 +302,36 @@ public static class AIProviderServiceCollectionExtensions
                     CatalogWireProtocol.ApplyProtocolConfiguration(o));
                 break;
 
+            case EProviderProtocol.Decision:
+                Register<DecisionProviderOptions, DecisionProvider>(services, providerCatalog, providerId,
+                                    (client, options, catalog, pid, logger, resolver) => new DecisionProvider(client, options, catalog, pid, logger, resolver));
+                services.Configure<DecisionProviderOptions>(providerId, o =>
+                    DecisionsWireProtocol.ApplyProtocolConfiguration(o));
+                break;
+
             default:
                 throw new ArgumentOutOfRangeException(nameof(protocol), protocol, "Unsupported provider protocol.");
         }
+    }
+
+    /// <summary>
+    /// Registers the one class serving an OpenAI-compatible/hybrid-gateway primary and its
+    /// decisions override under a single id (rule 12), keyed on the definition — not on a
+    /// provider-id convention. The options type is the branch's own, so consumer
+    /// <c>Configure&lt;TOptions&gt;(providerId, ...)</c> callbacks target the instance the
+    /// provider actually reads.
+    /// </summary>
+    /// <typeparam name="TOptions">The protocol-specific options type for the primary surface.</typeparam>
+    private static void RegisterDecisionCombination<TOptions>(
+        IServiceCollection services,
+        ProviderCatalog providerCatalog,
+        string providerId)
+        where TOptions : AIProviderOptions, IDecisionsEndpointOptions
+    {
+        Register<TOptions, OpenAICompatibleDecisionProvider>(services, providerCatalog, providerId,
+                            (client, options, catalog, pid, logger, resolver) => new OpenAICompatibleDecisionProvider(client, options, catalog, pid, logger, resolver));
+        services.Configure<TOptions>(providerId, o =>
+            DecisionsWireProtocol.ApplyProtocolConfiguration(o));
     }
 
     /// <summary>
@@ -265,8 +350,15 @@ public static class AIProviderServiceCollectionExtensions
         if (store is null || store.Get(providerId).Count == 0)
             return inner;
 
-        return inner is IStreamingChatProvider
-            ? new ModelCatalogOverrideDecorator(inner, store)
-            : new NonStreamingModelCatalogOverrideDecorator(inner, store);
+        if (inner is IStreamingChatProvider && inner is IDecisionProvider)
+            return new StreamingDecisionModelCatalogOverrideDecorator(inner, store);
+
+        if (inner is IStreamingChatProvider)
+            return new ModelCatalogOverrideDecorator(inner, store);
+
+        if (inner is IDecisionProvider)
+            return new DecisionModelCatalogOverrideDecorator(inner, store);
+
+        return new NonStreamingModelCatalogOverrideDecorator(inner, store);
     }
 }

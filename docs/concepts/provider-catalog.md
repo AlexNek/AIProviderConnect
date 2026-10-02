@@ -17,6 +17,7 @@ The runtime-relevant fields:
 | `BaseUrl` | `string` | Default API base URL |
 | `ChatEndpoint` | `string` | Chat endpoint path, default `chat/completions` |
 | `ModelsEndpoint` | `string` | Model list endpoint path, default `models` |
+| `Endpoints` | `IReadOnlyDictionary<string, EndpointDefinition>?` | Optional per-operation overrides (`chat`, `models`, `messages`, `embeddings`, `decisions`); see [Wire Protocols](wire-protocols.md#per-operation-endpoint-overrides) |
 | `HasModelDiscoveryApi` | `bool` | Drives `SupportsModelDiscovery` on the provider instance |
 
 The descriptive fields — `Website`, `LoginUrl`, `ApiPricingUrl`,

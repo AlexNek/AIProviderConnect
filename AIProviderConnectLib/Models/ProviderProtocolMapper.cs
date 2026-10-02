@@ -12,6 +12,7 @@ public static class ProviderProtocolMapper
                 ["geminicompatible"] = EProviderProtocol.KeyQuery,
                 ["githubmodelscompatible"] = EProviderProtocol.Catalog,
                 ["hybridgateway"] = EProviderProtocol.HybridGateway,
+                ["decision"] = EProviderProtocol.Decision,
                 ["native"] = EProviderProtocol.Native,
             };
 

@@ -6,8 +6,11 @@ namespace AIProviderConnect.Models;
 public sealed record AIModel
 {
     /// <summary>
-    /// Gets structured capability flags for this model.
+    /// Gets structured capability flags for this model — what it may be asked to do, not which
+    /// data types it accepts or emits (that is <see cref="Modality"/>).
     /// Replaces provider-level booleans (SupportsVision, SupportsTools, SupportsStreaming).
+    /// Model discovery does not report capabilities, so <see cref="EModelCapability.None"/> means
+    /// nothing was stated; declare real values through <see cref="ModelOverride.Capabilities"/>.
     /// </summary>
     public EModelCapability Capabilities { get; init; }
 
@@ -37,7 +40,9 @@ public sealed record AIModel
     public required string Id { get; init; }
 
     /// <summary>
-    /// Gets the input/output modalities (e.g. "text+image->text").
+    /// Gets the input/output modalities exactly as the provider reported them
+    /// (e.g. "text+image->text"). Data types only — it is not a capability signal, so do not
+    /// read it as <see cref="Capabilities"/>.
     /// </summary>
     public string? Modality { get; init; }
 

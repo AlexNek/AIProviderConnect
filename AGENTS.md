@@ -71,6 +71,21 @@ GraphVisualization  (pure WPF graph viewer — no domain dependencies)
 
 `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+### Which changelog records what (MANDATORY)
+
+The root `CHANGELOG.md` is the **NuGet package** record: `.github/workflows/release.yml` extracts its
+`## [X.Y.Z]` section and publishes it as the package's GitHub Release notes, so it may only contain
+changes a package consumer receives — `AIProviderConnectLib` (public API, wire protocols, DI,
+provider catalog data, XML docs) and the published `docs/` site.
+
+`ScraperTool/CHANGELOG.md` is the **desktop tool** record. ScraperTool is mirrored to the public
+repository as source but is never installed with the package, so its changes (views, view models,
+controls, `ScraperTool/Services`, `ScraperTool/Data`, `Config/`) go there and must not appear in
+package release notes.
+
+- A change that alters both surfaces is recorded in **both** files, each bullet describing only its own surface
+- Both files follow the same format and category rules, and both are renamed to the same `X.Y.Z` when a release is prepared — the tool heading marks the package release whose source snapshot first carried the change
+
 ### Format rules
 
 - Top-level heading: `# Changelog`
@@ -92,8 +107,8 @@ The `[Unreleased]` section must always describe the **final user-facing state re
 
 ### Algorithm: preparing a release (when asked to tag/release version X.Y.Z)
 
-1. Rename `## [Unreleased]` → `## [X.Y.Z] - YYYY-MM-DD` (use actual date)
-2. Add a new empty `## [Unreleased]` section above it
+1. Rename `## [Unreleased]` → `## [X.Y.Z] - YYYY-MM-DD` (use actual date) — in the root `CHANGELOG.md` and, when it has entries, in `ScraperTool/CHANGELOG.md`
+2. Add a new empty `## [Unreleased]` section above it (same files)
 3. Update the reference links at the bottom:
    - Change `[Unreleased]` link to compare `vX.Y.Z...HEAD`
    - Add `[X.Y.Z]: https://github.com/AlexNek/AIProviderConnect/releases/tag/vX.Y.Z`

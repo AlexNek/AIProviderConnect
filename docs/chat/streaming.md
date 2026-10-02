@@ -12,7 +12,7 @@ public interface IStreamingChatProvider
 }
 ```
 
-All four provider implementations support streaming.
+All four chat-family provider implementations support streaming. `DecisionProvider` is not a chat provider and does not implement streaming.
 
 ## Checking for Support
 

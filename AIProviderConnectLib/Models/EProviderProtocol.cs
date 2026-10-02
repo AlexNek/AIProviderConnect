@@ -18,5 +18,12 @@ public enum EProviderProtocol
 
     Catalog,
 
-    HybridGateway
+    HybridGateway,
+
+    /// <summary>
+    /// A decision model: answers typed questions about application state with probabilities
+    /// rather than generated chat prose. Providers of this protocol implement
+    /// <see cref="Abstractions.IDecisionProvider"/> and reject <see cref="Abstractions.IAIProvider.ChatAsync"/>.
+    /// </summary>
+    Decision
 }
