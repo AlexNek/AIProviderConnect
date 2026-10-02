@@ -4,10 +4,11 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ScraperTool.Views"
+        xmlns:c="clr-namespace:ScraperTool.Controls"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=local:ModelGridSelectorWindow}"
         Title="Select Model"
-        Height="560" Width="1180"
+        Height="630" Width="1260"
         WindowStartupLocation="CenterOwner"
         FontFamily="Segoe UI" FontSize="13"
         ShowInTaskbar="False">
@@ -27,12 +28,14 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" x:Name="HeaderLabel" Text="Select a model:" Margin="0,0,0,6" Foreground="#555" />
+        <TextBlock Grid.Row="0" Text="Select a model:" Margin="0,0,0,6" Foreground="#555" />
 
         <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,6">
-            <TextBlock Text="Filter by text" Foreground="#777" FontSize="11" Margin="0,0,0,2" />
+            <!-- One box per pair of columns: what is typed here is searched in Name and Owner only,
+                 and those are exactly the cells it paints. See NameQuery / OwnerQuery. -->
+            <TextBlock Text="Filter by name or owner" Foreground="#777" FontSize="11" Margin="0,0,0,2" />
             <TextBox x:Name="FilterBox" Margin="0" 
-                 Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                 Text="{Binding NameFilterText, UpdateSourceTrigger=PropertyChanged}"
                  FontSize="13">
                 <TextBox.Style>
                     <Style TargetType="TextBox">
@@ -42,7 +45,31 @@
                                     <Setter.Value>
                                         <VisualBrush Stretch="None" AlignmentX="Left">
                                             <VisualBrush.Visual>
-                                                <TextBlock Text="Filter by name, owner, modality, description…" Foreground="#AAA" Margin="4,2" />
+                                                <TextBlock Text="model name, owner, or a pasted id such as openai/gpt-4o…" Foreground="#AAA" Margin="4,2" />
+                                            </VisualBrush.Visual>
+                                        </VisualBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBox.Style>
+            </TextBox>
+            <!-- Descriptions are long and the column shows only their beginning, so they get their own
+                 box: typing here explains itself even when the match falls past the ellipsis. -->
+            <TextBlock Text="Filter by description" Foreground="#777" FontSize="11" Margin="0,10,0,2" />
+            <TextBox x:Name="DescriptionFilterBox" Margin="0"
+                 Text="{Binding DescriptionFilterText, UpdateSourceTrigger=PropertyChanged}"
+                 FontSize="13">
+                <TextBox.Style>
+                    <Style TargetType="TextBox">
+                        <Style.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter Property="Background">
+                                    <Setter.Value>
+                                        <VisualBrush Stretch="None" AlignmentX="Left">
+                                            <VisualBrush.Visual>
+                                                <TextBlock Text="words from the model description…" Foreground="#AAA" Margin="4,2" />
                                             </VisualBrush.Visual>
                                         </VisualBrush>
                                     </Setter.Value>
@@ -87,6 +114,9 @@
             <!-- Shown when capability data is missing or partial; see UpdateCapabilityFilterAvailability. -->
             <TextBlock x:Name="CapabilityHint" Foreground="#B26A00" FontSize="11"
                        Margin="0,4,0,0" Visibility="Collapsed" TextWrapping="Wrap" />
+            <!-- How many rows the grid is showing and where they came from; see UpdateModelCount. -->
+            <TextBlock x:Name="ModelCountLabel" FontSize="13" FontWeight="SemiBold" Foreground="#333"
+                       Margin="0,10,0,0" />
         </StackPanel>
 
         <DataGrid Grid.Row="2" x:Name="ModelGrid"
@@ -109,11 +139,14 @@
             </DataGrid.ContextMenu>
             <DataGrid.Columns>
                 <!-- The list is browsed and sorted by the bare model name; the complete id, which is what
-                     the API needs, stays in the tooltip and in every copy path (cell, row, Ctrl+C). -->
+                     the API needs, stays in the tooltip and in every copy path (cell, row, Ctrl+C).
+                     Matched fragments are painted, so a row always shows the text that got it listed. -->
                 <DataGridTemplateColumn Header="Name" SortMemberPath="Name" ClipboardContentBinding="{Binding Id}" Width="220">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis">
+                            <TextBlock TextTrimming="CharacterEllipsis"
+                                       c:HighlightText.Source="{Binding Name}"
+                                       c:HighlightText.Query="{Binding DataContext.NameQuery, RelativeSource={RelativeSource AncestorType=Window}}">
                                 <TextBlock.ToolTip>
                                     <ToolTip MaxWidth="420">
                                         <TextBlock Text="{Binding Id}" TextWrapping="Wrap" />
@@ -124,22 +157,27 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <!-- Owner is searched by the text filter, so it must stay visible. -->
-                <DataGridTextColumn Header="Owner" Binding="{Binding OwnedBy}" Width="110">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                            <Setter Property="ToolTip" Value="{Binding OwnedBy}" />
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
-                <DataGridTextColumn Header="Modalities" Binding="{Binding Modalities}" Width="150" MinWidth="120">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="HorizontalAlignment" Value="Center" />
-                            <Setter Property="ToolTip" Value="{Binding ModalityWords}" />
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
+                <DataGridTemplateColumn Header="Owner" SortMemberPath="OwnedBy" ClipboardContentBinding="{Binding OwnedBy}" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding OwnedBy}"
+                                       c:HighlightText.Source="{Binding OwnedBy}"
+                                       c:HighlightText.Query="{Binding DataContext.OwnerQuery, RelativeSource={RelativeSource AncestorType=Window}}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <!-- The icons alone are vague about direction, so the provider's raw words follow them.
+                     These words are not searched by the text box — modality is the dropdown's job — so they
+                     carry no match highlight either. -->
+                <DataGridTemplateColumn Header="Modalities" SortMemberPath="ModalityWords" ClipboardContentBinding="{Binding Modalities}" Width="200" MinWidth="140">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding ModalityWords}"
+                                       c:HighlightText.Prefix="{Binding Modalities}"
+                                       c:HighlightText.Source="{Binding ModalityWords}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Context" Binding="{Binding ContextWindow}" Width="80">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
@@ -177,7 +215,9 @@
                 <DataGridTemplateColumn Header="Description" Width="*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Description}" TextTrimming="CharacterEllipsis">
+                            <TextBlock TextTrimming="CharacterEllipsis"
+                                       c:HighlightText.Source="{Binding Description}"
+                                       c:HighlightText.Query="{Binding DataContext.DescriptionQuery, RelativeSource={RelativeSource AncestorType=Window}}">
                                 <TextBlock.ToolTip>
                                     <ToolTip MaxWidth="420">
                                         <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />

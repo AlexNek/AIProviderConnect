@@ -15,7 +15,9 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private string _filterText = string.Empty;
+    private string _nameFilterText = string.Empty;
+
+    private string _descriptionFilterText = string.Empty;
 
     private string? _initialSelectionId;
 
@@ -29,16 +31,63 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 
     public ObservableCollection<ModelSelectionItem> FilteredModels { get; } = [];
 
-    public string FilterText
+    /// <summary>
+    /// The "Filter by name or owner" box. It is allowed to hold a pasted model id (`openai/gpt-4o`),
+    /// which is why the searched text is split into <see cref="NameQuery"/> and
+    /// <see cref="OwnerQuery"/> rather than matched against the joined id.
+    /// </summary>
+    public string NameFilterText
     {
-        get => _filterText;
+        get => _nameFilterText;
         set
         {
-            _filterText = value;
+            _nameFilterText = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(NameQuery));
+            OnPropertyChanged(nameof(OwnerQuery));
             ApplyFilter();
         }
     }
+
+    /// <summary>The "Filter by description" box; feeds the Description column's highlight.</summary>
+    public string DescriptionFilterText
+    {
+        get => _descriptionFilterText;
+        set
+        {
+            _descriptionFilterText = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(DescriptionQuery));
+            ApplyFilter();
+        }
+    }
+
+    // Half of the name/owner box that belongs to the Name column. Empty when the box is empty or the
+    // query was a bare "owner/", so the column is then neither filtered nor painted.
+    public string NameQuery
+    {
+        get
+        {
+            var q = TrimmedNameFilter;
+            var slash = q.LastIndexOf('/');
+            return slash < 0 ? q : q[(slash + 1)..];
+        }
+    }
+
+    // Half of the name/owner box that belongs to the Owner column.
+    public string OwnerQuery
+    {
+        get
+        {
+            var q = TrimmedNameFilter;
+            var slash = q.LastIndexOf('/');
+            return slash < 0 ? q : q[..slash];
+        }
+    }
+
+    public string DescriptionQuery => _descriptionFilterText.Trim();
+
+    private string TrimmedNameFilter => _nameFilterText.Trim();
 
     public ModelSelectionItem? SelectedItem { get; private set; }
 
@@ -63,21 +112,20 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 
         _initialSelectionId = initialSelectionId;
         _sourceLabel = sourceLabel ?? string.Empty;
-        UpdateHeader();
+        UpdateModelCount();
     }
 
-    // Names the provider and states the row count, so a short list is recognisable as a short list
-    // instead of being mistaken for the provider's whole catalog.
-    private void UpdateHeader()
+    // States how many rows the grid is showing and which provider they came from, directly above the
+    // list, so a filtered or partial list is visible instead of something the user has to trust.
+    private void UpdateModelCount()
     {
-        if (HeaderLabel is null)
+        if (ModelCountLabel is null)
             return;
 
-        var source = _sourceLabel.Length > 0 ? $" — {_sourceLabel}" : string.Empty;
         var total = AllModels.Count;
-        HeaderLabel.Text = FilteredModels.Count == total
-            ? $"Select a model{source} · {total} models"
-            : $"Select a model{source} · {FilteredModels.Count} of {total} models";
+        var shown = FilteredModels.Count;
+        var counts = shown == total ? $"{total} models" : $"{shown} of {total} models shown";
+        ModelCountLabel.Text = _sourceLabel.Length > 0 ? $"{_sourceLabel} — {counts}" : counts;
     }
 
     private void ApplyDefaultPriceSort()
@@ -97,20 +145,35 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 
     private void ApplyFilter()
     {
-        var q = _filterText.Trim();
+        var nameQuery = NameQuery;
+        var ownerQuery = OwnerQuery;
+        var descriptionQuery = DescriptionQuery;
+
+        // A query holding a slash is a whole model id, so both halves have to match; otherwise the box
+        // is "name or owner" and either column is enough.
+        var isPastedId = TrimmedNameFilter.Contains('/');
+
         FilteredModels.Clear();
         foreach (var m in AllModels)
         {
-            // Every field probed here is on screen: name in the Name column, owner in the Owner column,
-            // modality words in the Modalities tooltip, and the Description column. The id is searched
-            // too, and it is the two visible parts joined, so a match is always explainable.
-            var matchesText = q.Length == 0 ||
-                              m.Id.Contains(q, StringComparison.OrdinalIgnoreCase) ||
-                              (m.Description?.Contains(q, StringComparison.OrdinalIgnoreCase)
-                               ?? false) ||
-                              (m.OwnedBy?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
-                              ||
-                              m.ModalityWords.Contains(q, StringComparison.OrdinalIgnoreCase);
+            // Each box reads only the columns it paints: the name/owner box sees the Name and Owner
+            // cells, the description box sees the Description cell, and modality and capability have
+            // their own dropdowns. No filter can therefore match text that is absent from the row.
+            var matchesName = nameQuery.Length == 0 ||
+                              m.Name.Contains(nameQuery, StringComparison.OrdinalIgnoreCase);
+
+            var matchesOwner = ownerQuery.Length == 0 ||
+                               (m.OwnedBy?.Contains(ownerQuery, StringComparison.OrdinalIgnoreCase)
+                                ?? false);
+
+            var matchesIdentity = isPastedId
+                ? matchesName && matchesOwner
+                : matchesName || matchesOwner;
+
+            var matchesDescription = descriptionQuery.Length == 0 ||
+                                     (m.Description?.Contains(
+                                          descriptionQuery, StringComparison.OrdinalIgnoreCase)
+                                      ?? false);
 
             var matchesModality = string.IsNullOrWhiteSpace(_modalityFilterToken) ||
                                   (m.Modalities?.Contains(
@@ -120,11 +183,11 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
             var matchesCapability = !_capabilityFilterFlag.HasValue ||
                                     m.Capabilities.HasFlag(_capabilityFilterFlag.Value);
 
-            if (matchesText && matchesModality && matchesCapability)
+            if (matchesIdentity && matchesDescription && matchesModality && matchesCapability)
                 FilteredModels.Add(m);
         }
 
-        UpdateHeader();
+        UpdateModelCount();
     }
 
     private void ApplyInitialSelection()
