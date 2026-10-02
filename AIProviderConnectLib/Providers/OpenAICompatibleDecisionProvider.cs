@@ -1,4 +1,5 @@
 using AIProviderConnect.Abstractions;
+using AIProviderConnect.Constants;
 using AIProviderConnect.Exceptions;
 using AIProviderConnect.Models;
 using AIProviderConnect.Options;
@@ -103,7 +104,7 @@ public sealed class OpenAICompatibleDecisionProvider
         var effectiveApiKey = EffectiveApiKey(Options, credentials);
         if (!string.IsNullOrWhiteSpace(effectiveApiKey)
             && Uri.TryCreate(resolvedUrl, UriKind.Absolute, out var uri)
-            && !uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+            && !uri.Scheme.Equals(UriSchemes.Https, StringComparison.OrdinalIgnoreCase))
         {
             throw new AiException(AiErrorCodes.InvalidRequest,
                 $"Provider '{Id}': decisions base URL must use HTTPS when an API key is present.");

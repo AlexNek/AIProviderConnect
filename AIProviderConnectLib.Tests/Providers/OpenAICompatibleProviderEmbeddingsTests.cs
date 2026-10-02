@@ -461,6 +461,24 @@ public class OpenAICompatibleProviderEmbeddingsTests
     }
 
     [Fact]
+    public async Task EmbedAsync_NonAbsoluteOverride_ThrowsInvalidRequest()
+    {
+        // Arrange — a scheme-less (non-absolute) override must surface as a clean AiException
+        // before the request is built, not leak a raw UriFormatException from BuildRequest
+        using var handler = new CapturingHttpMessageHandler(ValidEmbeddingResponse);
+        var provider = CreateWithEmbeddingsBaseUrl(
+            handler, embeddingsBaseUrl: "test.example.com/embed/");
+
+        // Act
+        Func<Task> act = () => provider.EmbedAsync(SampleRequest());
+
+        // Assert
+        var ex = (await act.Should().ThrowAsync<AiException>()).Which;
+        ex.Code.Should().Be(AiErrorCodes.InvalidRequest);
+        ex.Message.Should().Contain("is not a valid absolute URL");
+    }
+
+    [Fact]
     public async Task EmbedAsync_NoBaseUrlAnywhere_ThrowsNoBaseUrl()
     {
         // Arrange — the resolver falls through to EffectiveBaseUrl(Options, credentials),

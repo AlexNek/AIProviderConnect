@@ -205,7 +205,7 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
 
         if (!string.IsNullOrWhiteSpace(effectiveApiKey)
             && Uri.TryCreate(effectiveBaseUrl, UriKind.Absolute, out var uri)
-            && !uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+            && !uri.Scheme.Equals(UriSchemes.Https, StringComparison.OrdinalIgnoreCase))
         {
             throw new AiException(AiErrorCodes.InvalidRequest,
                 $"Provider '{Id}': base URL must use HTTPS when an API key is present.");

@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 using AIProviderConnect.Abstractions;
+using AIProviderConnect.Constants;
 using AIProviderConnect.Exceptions;
 using AIProviderConnect.Models;
 using AIProviderConnect.Options;
@@ -230,8 +231,9 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
 
     // The embeddings surface may live on a different root than the provider BaseUrl (the
     // endpoints["embeddings"].baseUrl override). When the override is absent the effective
-    // base URL (per-request or configured) is used. When an API key is present, the resolved
-    // URL must be HTTPS to protect credentials in transit.
+    // base URL (per-request or configured) is used. The resolved URL must be absolute before
+    // the request is built; when an API key is present it must also use HTTPS to protect
+    // credentials in transit.
     private string ResolveEmbeddingsBaseUrl(RequestCredentials? credentials)
     {
         var resolvedUrl = !string.IsNullOrWhiteSpace(_embeddingsBaseUrl)
@@ -241,10 +243,13 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
         if (string.IsNullOrWhiteSpace(resolvedUrl))
             throw new AiException(AiErrorCodes.NoBaseUrl, $"Provider '{Id}' is missing an embeddings base URL.");
 
+        if (!Uri.TryCreate(resolvedUrl, UriKind.Absolute, out var uri))
+            throw new AiException(AiErrorCodes.InvalidRequest,
+                $"Provider '{Id}': embeddings base URL '{resolvedUrl}' is not a valid absolute URL.");
+
         var effectiveApiKey = EffectiveApiKey(Options, credentials);
         if (!string.IsNullOrWhiteSpace(effectiveApiKey)
-            && Uri.TryCreate(resolvedUrl, UriKind.Absolute, out var uri)
-            && !uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+            && !uri.Scheme.Equals(UriSchemes.Https, StringComparison.OrdinalIgnoreCase))
         {
             throw new AiException(AiErrorCodes.InvalidRequest,
                 $"Provider '{Id}': embeddings base URL must use HTTPS when an API key is present.");
