@@ -264,3 +264,9 @@ fields are applied. See
 `ToolCalling`, `Embedding`, `Reranker`, `ImageRecognition`,
 `ImageGeneration`, `AudioRecognition`, `TextToSpeech`, `AudioGeneration`,
 `VideoTranscription`, `VideoRecognition`, `VideoGeneration`, `Decision`.
+
+It states what a model may be asked to do. `AIModel.Modality` is the separate field for
+which data types flow in and out — a modality does not imply a capability. Discovery
+reports no capabilities, so `None` on a live model means nothing was stated; supply the
+flags you rely on through `ModelOverride.Capabilities`. See
+[Model Discovery](../model-discovery/model-discovery.md#capabilities-are-not-modalities).

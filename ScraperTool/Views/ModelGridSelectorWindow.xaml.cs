@@ -81,14 +81,15 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         FilteredModels.Clear();
         foreach (var m in AllModels)
         {
+            // Every field probed here has a visible column (Model ID, Owner, Modalities
+            // tooltip, Description) so a user can always see why a row matched.
             var matchesText = q.Length == 0 ||
                               m.Id.Contains(q, StringComparison.OrdinalIgnoreCase) ||
                               (m.Description?.Contains(q, StringComparison.OrdinalIgnoreCase)
                                ?? false) ||
                               (m.OwnedBy?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
                               ||
-                              (m.Modalities?.Contains(q, StringComparison.OrdinalIgnoreCase)
-                               ?? false);
+                              m.ModalityWords.Contains(q, StringComparison.OrdinalIgnoreCase);
 
             var matchesModality = string.IsNullOrWhiteSpace(_modalityFilterToken) ||
                                   (m.Modalities?.Contains(
@@ -134,7 +135,9 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         var value = col.Header?.ToString() switch
             {
                 "Model ID" => row.Id,
+                "Owner" => row.OwnedBy ?? string.Empty,
                 "Modalities" => row.Modalities,
+                "Capabilities" => row.CapabilitiesText,
                 "Context" => row.ContextWindow,
                 "Prompt, $/1M" => row.PromptPrice,
                 "Completion, $/1M" => row.CompletionPrice,
@@ -151,7 +154,7 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         if (ModelGrid.SelectedItem is not ModelSelectionItem row) return;
 
         var text =
-            $"{row.Id}\t{row.Modalities}\t{row.ContextWindow}\t{row.PromptPrice}\t{row.CompletionPrice}\t{row.Description}";
+            $"{row.Id}\t{row.OwnedBy}\t{row.Modalities}\t{row.ContextWindow}\t{row.PromptPrice}\t{row.CompletionPrice}\t{row.Description}";
         Clipboard.SetText(text);
     }
 
@@ -211,7 +214,27 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         // If ItemsSource is an ObservableCollection, WPF sorting needs a view.
         // We'll re-apply sorting by replacing the collection in code-behind.
         ApplyDefaultPriceSort();
+        UpdateCapabilityFilterAvailability();
         ApplyInitialSelection();
+    }
+
+    // Capability flags are provider-reported data. Model discovery leaves them unset today, so the
+    // filter would match a column nobody can see and hide every row without an on-screen reason.
+    private void UpdateCapabilityFilterAvailability()
+    {
+        var reported = AllModels.Count(m => m.Capabilities != EModelCapability.None);
+        CapabilityFilter.IsEnabled = reported > 0;
+
+        if (AllModels.Count > 0 && reported < AllModels.Count)
+        {
+            CapabilityHint.Text = reported == 0
+                ? "These models report no capabilities, so capability filtering is unavailable."
+                : "Only part of the list reports capabilities — rows without them are excluded.";
+            CapabilityHint.Visibility = Visibility.Visible;
+            return;
+        }
+
+        CapabilityHint.Visibility = Visibility.Collapsed;
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>

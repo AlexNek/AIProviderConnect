@@ -6,6 +6,10 @@ public sealed class ModelSelectionItem
 {
     public EModelCapability Capabilities { get; set; }
 
+    // Readable form of Capabilities; "not reported" because an unset flag means the provider
+    // never told us anything, not that the model lacks the capability.
+    public string CapabilitiesText { get; set; } = "not reported";
+
     public string CompletionPrice { get; set; } = string.Empty;
 
     public string ContextWindow { get; set; } = string.Empty;
@@ -19,6 +23,10 @@ public sealed class ModelSelectionItem
     public bool IsFree { get; set; }
 
     public string Modalities { get; set; } = string.Empty;
+
+    // Raw provider modality string (e.g. "text+image->text") — kept because the
+    // Modalities column shows icons, which cannot be typed into the text filter.
+    public string ModalityWords { get; set; } = string.Empty;
 
     public string? OwnedBy { get; set; }
 
@@ -37,6 +45,7 @@ public sealed class ModelSelectionItem
                        Description = m.Description,
                        OwnedBy = owner,
                        Modalities = ParseModalities(m.Modality),
+                       ModalityWords = m.Modality ?? string.Empty,
                        ContextWindow =
                            m.ContextWindow is > 0 ? $"{m.ContextWindow:N0}" : string.Empty,
                        PromptPrice =
@@ -47,6 +56,9 @@ public sealed class ModelSelectionItem
                                : string.Empty,
                        IsFree = m.PromptPrice is 0 && m.CompletionPrice is 0,
                        Capabilities = m.Capabilities,
+                       CapabilitiesText = m.Capabilities == EModelCapability.None
+                           ? "not reported"
+                           : m.Capabilities.ToString(),
                    };
     }
 

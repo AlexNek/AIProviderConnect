@@ -45,8 +45,8 @@ if (provider is IModelDiscoveryProvider discovery
 | `OwnedBy` | `string?` | Organization that owns the model |
 | `Description` | `string?` | Model description, when the API provides one |
 | `ContextWindow` | `int?` | Maximum context size in tokens |
-| `Capabilities` | `EModelCapability` | Capability flags (see below) |
-| `Modality` | `string?` | Input/output modalities, e.g. `"text+image->text"` |
+| `Capabilities` | `EModelCapability` | What the model may be asked to do (see below) — not reported by discovery, declare it via `ModelOverride` |
+| `Modality` | `string?` | Input/output data types as the provider reported them, e.g. `"text+image->text"` — not a capability signal |
 | `PromptPrice` | `decimal?` | Price per million prompt tokens |
 | `CompletionPrice` | `decimal?` | Price per million completion tokens |
 | `PriceUnit` | `EModelPriceUnit` | Pricing unit, default `EModelPriceUnit.Per1M` |
@@ -56,15 +56,46 @@ provider exposes and leaves the rest at defaults.
 
 ## EModelCapability
 
-`Capabilities` is a `[Flags]` enum covering text and multimodal abilities:
+`Capabilities` is a `[Flags]` enum describing **what a model may be asked to do** — its
+operations:
 
 - Text & core: `TextGeneration`, `StructuredOutput`, `ToolCalling`,
   `Embedding`, `Reranker`
 - Vision: `ImageRecognition`, `ImageGeneration`
 - Audio: `AudioRecognition`, `TextToSpeech`, `AudioGeneration`
 - Video: `VideoTranscription`, `VideoRecognition`, `VideoGeneration`
+- Decision: `Decision`
+
+### Capabilities are not modalities
+
+`Modality` and `Capabilities` answer different questions:
+
+| Field | Question it answers | Example |
+| --- | --- | --- |
+| `Modality` | which data types flow in and out | `text+image->text` |
+| `Capabilities` | what the model may be asked to do | `ToolCalling`, `StructuredOutput` |
+
+A modality never implies a capability. `ToolCalling`, `StructuredOutput`, `Embedding`,
+`Reranker`, and `Decision` carry no modality signal at all — they are text-shaped or
+absent — and the arrow direction cannot separate `TextToSpeech` from `AudioGeneration`,
+nor `VideoTranscription` from `VideoRecognition`. Read each field on its own terms.
+
+No provider model-discovery endpoint reports capability flags, so a discovered model
+carries `EModelCapability.None`. That is an absent statement, not a verdict that the
+model cannot do something. Declare the capabilities your application depends on through
+[consumer-supplied overrides](#consumer-supplied-overrides):
 
 ```csharp
+services.AddAiProviders(o => o.OverrideModels("openai", new[]
+{
+    new ModelOverride
+    {
+        Id = "gpt-4o",
+        Capabilities = EModelCapability.TextGeneration | EModelCapability.ToolCalling,
+    },
+}));
+
+// After the merge the flag is reported data, and this test means what it looks like it means.
 bool supportsTools = model.Capabilities.HasFlag(EModelCapability.ToolCalling);
 ```
 
