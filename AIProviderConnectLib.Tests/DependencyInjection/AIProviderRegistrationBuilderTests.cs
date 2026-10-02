@@ -502,6 +502,50 @@ public class AIProviderRegistrationBuilderTests
     }
 
     [Fact]
+    public void Endpoints_DecisionsProtocol_HybridGateway_RegistersItsOwnOptionsType()
+    {
+        // Arrange — a HybridGateway definition with a decisions override. The combined provider
+        // must read HybridGatewayProviderOptions, so consumer configuration on that type reaches
+        // the instance the provider actually uses.
+        var services = new ServiceCollection();
+        services.AddSingleton(new HttpClient());
+        var definition = new ProviderDefinition
+        {
+            Id = "hybrid-combined",
+            DisplayName = "Hybrid Combined",
+            BaseUrl = "https://test.example.com/api/v1/",
+            Protocol = EProviderProtocol.HybridGateway,
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["decisions"] = new EndpointDefinition
+                {
+                    Path = "alpha/decisions",
+                    Protocol = EProviderProtocol.Decision
+                }
+            }
+        };
+
+        // Act
+        services.AddAiProviders(
+            b => b
+                .Add(definition)
+                .Configure<HybridGatewayProviderOptions>(
+                    "hybrid-combined",
+                    o => o.DecisionsEndpoint = "consumer/decisions"));
+        using var provider = services.BuildServiceProvider();
+
+        // Assert — same combined class, but seeded/configured through the hybrid options type.
+        // A BaseUrl on the hybrid instance proves the branch registered seeding for its own type;
+        // an id registered only under another options type would leave it empty.
+        provider.GetRequiredKeyedService<IAIProvider>("hybrid-combined")
+            .Should().BeOfType<OpenAICompatibleDecisionProvider>();
+        var options = provider.GetRequiredService<IOptionsFactory<HybridGatewayProviderOptions>>()
+            .Create("hybrid-combined");
+        options.BaseUrl.Should().Be("https://test.example.com/api/v1/");
+        options.DecisionsEndpoint.Should().Be("consumer/decisions");
+    }
+
+    [Fact]
     public void ConsumerConfigure_WinsOverLegacyFlatFieldAndEndpointsEntry()
     {
         // Arrange — a definition with both a legacy flat ChatEndpoint and an endpoints["chat"] entry.

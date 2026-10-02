@@ -262,7 +262,7 @@ public static class AIProviderServiceCollectionExtensions
             case EProviderProtocol.OpenAICompatible:
                 if (EndpointConfiguration.TryGetDecisionsOverride(provider, out _))
                 {
-                    RegisterDecisionCombination(services, providerCatalog, providerId);
+                    RegisterDecisionCombination<OpenAICompatibleProviderOptions>(services, providerCatalog, providerId);
                     break;
                 }
 
@@ -280,7 +280,7 @@ public static class AIProviderServiceCollectionExtensions
             case EProviderProtocol.HybridGateway:
                 if (EndpointConfiguration.TryGetDecisionsOverride(provider, out _))
                 {
-                    RegisterDecisionCombination(services, providerCatalog, providerId);
+                    RegisterDecisionCombination<HybridGatewayProviderOptions>(services, providerCatalog, providerId);
                     break;
                 }
 
@@ -317,16 +317,20 @@ public static class AIProviderServiceCollectionExtensions
     /// <summary>
     /// Registers the one class serving an OpenAI-compatible/hybrid-gateway primary and its
     /// decisions override under a single id (rule 12), keyed on the definition — not on a
-    /// provider-id convention.
+    /// provider-id convention. The options type is the branch's own, so consumer
+    /// <c>Configure&lt;TOptions&gt;(providerId, ...)</c> callbacks target the instance the
+    /// provider actually reads.
     /// </summary>
-    private static void RegisterDecisionCombination(
+    /// <typeparam name="TOptions">The protocol-specific options type for the primary surface.</typeparam>
+    private static void RegisterDecisionCombination<TOptions>(
         IServiceCollection services,
         ProviderCatalog providerCatalog,
         string providerId)
+        where TOptions : AIProviderOptions, IDecisionsEndpointOptions
     {
-        Register<OpenAICompatibleProviderOptions, OpenAICompatibleDecisionProvider>(services, providerCatalog, providerId,
+        Register<TOptions, OpenAICompatibleDecisionProvider>(services, providerCatalog, providerId,
                             (client, options, catalog, pid, logger, resolver) => new OpenAICompatibleDecisionProvider(client, options, catalog, pid, logger, resolver));
-        services.Configure<OpenAICompatibleProviderOptions>(providerId, o =>
+        services.Configure<TOptions>(providerId, o =>
             DecisionsWireProtocol.ApplyProtocolConfiguration(o));
     }
 
