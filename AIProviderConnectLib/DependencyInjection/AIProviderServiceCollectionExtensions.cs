@@ -128,7 +128,7 @@ public static class AIProviderServiceCollectionExtensions
         return services;
     }
 
-    private static void SeedFromDefinition(AIProviderOptions options, ProviderDefinition definition)
+    internal static void SeedFromDefinition(AIProviderOptions options, ProviderDefinition definition)
     {
         if (!string.IsNullOrEmpty(definition.BaseUrl))
             options.BaseUrl = definition.BaseUrl;

@@ -91,6 +91,13 @@ public sealed partial class EndpointConfigEntry : ObservableObject
     private string _protocol = InheritProtocolDisplay;
 
     /// <summary>
+    /// Opaque additional query parameter appended to the endpoint path at seeding
+    /// time (e.g. <c>"output_modalities=all"</c>). Empty means no widening parameter.
+    /// </summary>
+    [ObservableProperty]
+    private string _additionalQueryParameter = string.Empty;
+
+    /// <summary>
     /// True when the row was auto-seeded from a legacy flat field and should not
     /// be removed via the delete button.
     /// </summary>

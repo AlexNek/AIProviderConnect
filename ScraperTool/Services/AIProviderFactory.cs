@@ -1,6 +1,7 @@
 using System.Net.Http;
 
 using AIProviderConnect.Abstractions;
+using AIProviderConnect.DependencyInjection;
 using AIProviderConnect.Models;
 using AIProviderConnect.Options;
 using AIProviderConnect.Providers;
@@ -71,68 +72,69 @@ public sealed class AIProviderFactory : ITransientCredentialProviderFactory
             ["X-Title"] = "AI Provider Catalog Researcher"
         };
 
+        AIProviderOptions options = definition.Protocol switch
+            {
+                EProviderProtocol.OpenAICompatible => new OpenAICompatibleProviderOptions
+                    {
+                        ApiKey = apiKey,
+                        BaseUrl = baseUrl,
+                        Enabled = true,
+                        DefaultHeaders = commonHeaders
+                    },
+                EProviderProtocol.MessagesApi => new MessagesApiOptions
+                    {
+                        ApiKey = apiKey,
+                        BaseUrl = baseUrl,
+                        Enabled = true,
+                        DefaultHeaders = commonHeaders
+                    },
+                EProviderProtocol.HybridGateway => new HybridGatewayProviderOptions
+                    {
+                        ApiKey = apiKey,
+                        BaseUrl = baseUrl,
+                        Enabled = true,
+                        DefaultHeaders = commonHeaders
+                    },
+                EProviderProtocol.KeyQuery => new KeyQueryOptions
+                    {
+                        ApiKey = apiKey,
+                        BaseUrl = baseUrl,
+                        Enabled = true,
+                        DefaultHeaders = commonHeaders
+                    },
+                EProviderProtocol.Catalog => new OpenAICompatibleProviderOptions
+                    {
+                        ApiKey = apiKey,
+                        BaseUrl = baseUrl,
+                        Enabled = true,
+                        DefaultHeaders = commonHeaders
+                    },
+                _ => new OpenAICompatibleProviderOptions
+                    {
+                        ApiKey = apiKey,
+                        BaseUrl = baseUrl,
+                        Enabled = true,
+                        DefaultHeaders = commonHeaders
+                    }
+            };
+
+        // Seed endpoint paths (including additionalQueryParameter) from the catalog definition.
+        AIProviderServiceCollectionExtensions.SeedFromDefinition(options, definition);
+
         return definition.Protocol switch
             {
                 EProviderProtocol.OpenAICompatible => new OpenAICompatibleProvider(
-                    http,
-                    new OpenAICompatibleProviderOptions
-                        {
-                            ApiKey = apiKey,
-                            BaseUrl = baseUrl,
-                            Enabled = true,
-                            DefaultHeaders = commonHeaders
-                        },
-                    _catalog, definition.Id),
+                    http, (OpenAICompatibleProviderOptions)options, _catalog, definition.Id),
                 EProviderProtocol.MessagesApi => new MessagesApiProvider(
-                    http,
-                    new MessagesApiOptions
-                        {
-                            ApiKey = apiKey,
-                            BaseUrl = baseUrl,
-                            Enabled = true,
-                            DefaultHeaders = commonHeaders
-                        },
-                    _catalog, definition.Id),
+                    http, (MessagesApiOptions)options, _catalog, definition.Id),
                 EProviderProtocol.HybridGateway => new OpenAICompatibleProvider(
-                    http,
-                    new HybridGatewayProviderOptions
-                        {
-                            ApiKey = apiKey,
-                            BaseUrl = baseUrl,
-                            Enabled = true,
-                            DefaultHeaders = commonHeaders
-                        },
-                    _catalog, definition.Id),
+                    http, (HybridGatewayProviderOptions)options, _catalog, definition.Id),
                 EProviderProtocol.KeyQuery => new KeyQueryProvider(
-                    http,
-                    new KeyQueryOptions
-                        {
-                            ApiKey = apiKey,
-                            BaseUrl = baseUrl,
-                            Enabled = true,
-                            DefaultHeaders = commonHeaders
-                        },
-                    _catalog, definition.Id),
+                    http, (KeyQueryOptions)options, _catalog, definition.Id),
                 EProviderProtocol.Catalog => new ModelCatalogProvider(
-                    http,
-                    new OpenAICompatibleProviderOptions
-                        {
-                            ApiKey = apiKey,
-                            BaseUrl = baseUrl,
-                            Enabled = true,
-                            DefaultHeaders = commonHeaders
-                        },
-                    _catalog, definition.Id),
+                    http, (OpenAICompatibleProviderOptions)options, _catalog, definition.Id),
                 _ => new OpenAICompatibleProvider(
-                    http,
-                    new OpenAICompatibleProviderOptions
-                        {
-                            ApiKey = apiKey,
-                            BaseUrl = baseUrl,
-                            Enabled = true,
-                            DefaultHeaders = commonHeaders
-                        },
-                    _catalog, definition.Id)
+                    http, (OpenAICompatibleProviderOptions)options, _catalog, definition.Id)
             };
     }
 

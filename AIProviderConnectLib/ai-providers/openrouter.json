@@ -26,7 +26,8 @@
       "path": "chat/completions"
     },
     "models": {
-      "path": "models"
+      "path": "models",
+      "additionalQueryParameter": "output_modalities=all"
     },
     "decisions": {
       "path": "alpha/decisions",

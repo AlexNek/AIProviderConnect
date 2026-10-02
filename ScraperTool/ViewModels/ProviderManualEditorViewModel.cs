@@ -576,7 +576,8 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
             .Where(e => !string.IsNullOrWhiteSpace(e.Operation)
                         && (!string.IsNullOrWhiteSpace(e.Path)
                             || !string.IsNullOrWhiteSpace(e.BaseUrl)
-                            || !string.IsNullOrWhiteSpace(e.Protocol))
+                            || !string.IsNullOrWhiteSpace(e.Protocol)
+                            || !string.IsNullOrWhiteSpace(e.AdditionalQueryParameter))
                         && !IsAutoSeededDefaultWithNoOverride(e))
             .GroupBy(e => e.Operation.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
@@ -588,7 +589,11 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
                             Protocol = string.IsNullOrWhiteSpace(g.Last().Protocol)
                                         || g.Last().Protocol == EndpointConfigEntry.InheritProtocolDisplay
                                 ? null
-                                : ProviderProtocolMapper.FromJson(g.Last().Protocol)
+                                : ProviderProtocolMapper.FromJson(g.Last().Protocol),
+                            AdditionalQueryParameter =
+                                string.IsNullOrWhiteSpace(g.Last().AdditionalQueryParameter)
+                                    ? null
+                                    : g.Last().AdditionalQueryParameter
                         },
                 StringComparer.OrdinalIgnoreCase);
 
@@ -629,8 +634,9 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
                           && entry.Protocol != EndpointConfigEntry.InheritProtocolDisplay;
         var pathDiffersFromDefault = !string.Equals(
             entry.Path, entry.DefaultPath, StringComparison.OrdinalIgnoreCase);
+        var hasAdditionalQueryParameter = !string.IsNullOrWhiteSpace(entry.AdditionalQueryParameter);
 
-        return !hasBaseUrl && !hasProtocol && !pathDiffersFromDefault;
+        return !hasBaseUrl && !hasProtocol && !pathDiffersFromDefault && !hasAdditionalQueryParameter;
     }
 
     /// <summary>
@@ -1547,7 +1553,9 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
                                                      BaseUrl = kvp.Value.BaseUrl ?? string.Empty,
                                                      Protocol = kvp.Value.Protocol is null
                                                          ? EndpointConfigEntry.InheritProtocolDisplay
-                                                         : ProviderProtocolMapper.ToJson(kvp.Value.Protocol.Value)
+                                                         : ProviderProtocolMapper.ToJson(kvp.Value.Protocol.Value),
+                                                     AdditionalQueryParameter =
+                                                         kvp.Value.AdditionalQueryParameter ?? string.Empty
                                                  });
             }
         }
