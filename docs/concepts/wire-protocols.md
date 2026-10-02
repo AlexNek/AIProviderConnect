@@ -54,7 +54,7 @@ The resolution precedence for each operation is:
 1. the option defaults,
 2. the legacy flat definition field (`chatEndpoint`, `modelsEndpoint`,
    `messagesEndpoint`),
-3. the `endpoints` entry (`path`, and for decisions also `baseUrl`),
+3. the `endpoints` entry (`path`, and for `decisions` and `embeddings` also `baseUrl`),
 4. a consumer's `Configure<TOptions>(providerId, ...)` call.
 
 Each later step wins over the earlier ones. An operation that lives in the

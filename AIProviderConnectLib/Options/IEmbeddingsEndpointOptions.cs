@@ -15,4 +15,10 @@ internal interface IEmbeddingsEndpointOptions
     /// Gets or sets the default embedding model identifier.
     /// </summary>
     string DefaultEmbeddingModel { get; set; }
+
+    /// <summary>
+    /// Gets or sets the base-URL override for the embeddings surface; used only when
+    /// the embeddings surface lives on a different root than the provider base URL.
+    /// </summary>
+    string? EmbeddingsBaseUrl { get; set; }
 }

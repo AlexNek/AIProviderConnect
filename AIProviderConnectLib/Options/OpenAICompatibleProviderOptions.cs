@@ -23,6 +23,12 @@ public sealed class OpenAICompatibleProviderOptions : AIProviderOptions, IChatAn
     public string EmbeddingsEndpoint { get; set; } = EndpointDefaults.Embeddings;
 
     /// <summary>
+    /// Gets or sets the base-URL override for the embeddings surface; used only when
+    /// the embeddings surface lives on a different root than the provider base URL.
+    /// </summary>
+    public string? EmbeddingsBaseUrl { get; set; }
+
+    /// <summary>
     /// Gets or sets the endpoint path for decision calls.
     /// Default is <see cref="EndpointDefaults.Decisions"/>.
     /// </summary>

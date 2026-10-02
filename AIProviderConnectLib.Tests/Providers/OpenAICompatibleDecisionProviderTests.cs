@@ -233,6 +233,7 @@ public class OpenAICompatibleDecisionProviderTests
         public string ModelsEndpoint { get; set; } = EndpointDefaults.Models;
         public string EmbeddingsEndpoint { get; set; } = EndpointDefaults.Embeddings;
         public string DefaultEmbeddingModel { get; set; } = string.Empty;
+        public string? EmbeddingsBaseUrl { get; set; }
     }
 
     [Fact]

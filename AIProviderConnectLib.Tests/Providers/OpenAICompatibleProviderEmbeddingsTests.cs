@@ -12,6 +12,10 @@ using AIProviderConnect.Tests.TestDoubles;
 
 using FluentAssertions;
 
+using Microsoft.Extensions.Logging.Abstractions;
+
+using Moq;
+
 namespace AIProviderConnectLib.Tests.Providers;
 
 /// <summary>
@@ -335,5 +339,180 @@ public class OpenAICompatibleProviderEmbeddingsTests
             "keyquery-provider");
 
         ((object)provider is IEmbeddingProvider).Should().BeFalse();
+    }
+
+    // --- Base-URL override for the embeddings surface (bug 06, remedy A1) ---
+
+    // The surface override is captured in the constructor and wins over the definition base,
+    // mirroring the decisions pattern (see ResolveDecisionsBaseUrl). Other operations of the
+    // same provider must still resolve against the definition base.
+    private static OpenAICompatibleProvider CreateWithEmbeddingsBaseUrl(
+        HttpMessageHandler handler,
+        string? embeddingsBaseUrl,
+        string baseUrl = "https://test.example.com/v1/",
+        string apiKey = "fake-api-key")
+    {
+        var options = new OpenAICompatibleProviderOptions
+        {
+            BaseUrl = baseUrl,
+            ApiKey = apiKey,
+            Enabled = true,
+            EmbeddingsBaseUrl = embeddingsBaseUrl
+        };
+        return new OpenAICompatibleProvider(
+            new HttpClient(handler),
+            options,
+            new ProviderCatalog([
+                new ProviderDefinition
+                {
+                    Id = "test-provider", DisplayName = "Test provider",
+                    BaseUrl = baseUrl, Protocol = EProviderProtocol.OpenAICompatible
+                }
+            ]),
+            "test-provider");
+    }
+
+    [Fact]
+    public async Task EmbedAsync_WithBaseUrlOverride_RequestUriIsOverrideRootPlusPath()
+    {
+        // Arrange — the embeddings surface sits on a different root than the /v1/ common base
+        using var handler = new CapturingHttpMessageHandler(ValidEmbeddingResponse);
+        var provider = CreateWithEmbeddingsBaseUrl(
+            handler, embeddingsBaseUrl: "https://test.example.com/embed/");
+
+        // Act
+        await provider.EmbedAsync(SampleRequest());
+
+        // Assert
+        handler.LastRequest!.RequestUri!.AbsoluteUri
+            .Should().Be("https://test.example.com/embed/embeddings");
+    }
+
+    [Fact]
+    public async Task EmbedAsync_WithoutBaseUrlOverride_ResolvesAgainstCommonDefinitionBase()
+    {
+        // Arrange — no surface override: existing behavior unchanged
+        using var handler = new CapturingHttpMessageHandler(ValidEmbeddingResponse);
+        var provider = CreateWithEmbeddingsBaseUrl(handler, embeddingsBaseUrl: null);
+
+        // Act
+        await provider.EmbedAsync(SampleRequest());
+
+        // Assert
+        handler.LastRequest!.RequestUri!.AbsoluteUri
+            .Should().Be("https://test.example.com/v1/embeddings");
+    }
+
+    [Fact]
+    public async Task ChatAsync_WhenEmbeddingsOverridePresent_StillUsesCommonDefinitionBase()
+    {
+        // Arrange — the override is scoped to embeddings only; chat must not be re-targeted
+        using var handler = new CapturingHttpMessageHandler("""
+            { "id": "c1", "model": "m1", "choices": [ { "message": { "role": "assistant", "content": "hi" } } ] }
+            """);
+        var provider = CreateWithEmbeddingsBaseUrl(
+            handler, embeddingsBaseUrl: "https://test.example.com/embed/");
+
+        // Act
+        await provider.ChatAsync(new ChatCompletionRequest
+        {
+            Model = "m1",
+            Messages = [new ChatMessage { Role = EChatRole.User, Content = "hi" }]
+        });
+
+        // Assert
+        handler.LastRequest!.RequestUri!.AbsoluteUri
+            .Should().Be("https://test.example.com/v1/chat/completions");
+    }
+
+    [Fact]
+    public async Task GetModelsAsync_WhenEmbeddingsOverridePresent_StillUsesCommonDefinitionBase()
+    {
+        // Arrange — the override is scoped to embeddings only; model discovery must not be re-targeted
+        using var handler = new CapturingHttpMessageHandler("""
+            { "data": [ { "id": "m1" } ] }
+            """);
+        var provider = CreateWithEmbeddingsBaseUrl(
+            handler, embeddingsBaseUrl: "https://test.example.com/embed/");
+
+        // Act
+        await provider.GetModelsAsync();
+
+        // Assert
+        handler.LastRequest!.RequestUri!.AbsoluteUri
+            .Should().Be("https://test.example.com/v1/models");
+    }
+
+    [Fact]
+    public async Task EmbedAsync_NonHttpsOverrideWithApiKeyPresent_ThrowsInvalidRequest()
+    {
+        // Arrange — mirrors the decisions HTTPS guard: credentials must never travel in the clear
+        using var handler = new CapturingHttpMessageHandler(ValidEmbeddingResponse);
+        var provider = CreateWithEmbeddingsBaseUrl(
+            handler, embeddingsBaseUrl: "http://insecure.example.com/api/");
+
+        // Act
+        Func<Task> act = () => provider.EmbedAsync(SampleRequest());
+
+        // Assert
+        var ex = (await act.Should().ThrowAsync<AiException>()).Which;
+        ex.Code.Should().Be(AiErrorCodes.InvalidRequest);
+        ex.Message.Should().Contain("embeddings base URL must use HTTPS");
+    }
+
+    [Fact]
+    public async Task EmbedAsync_NoBaseUrlAnywhere_ThrowsNoBaseUrl()
+    {
+        // Arrange — the resolver falls through to EffectiveBaseUrl(Options, credentials),
+        // which is empty when neither the definition base nor a per-request override supplies one
+        using var handler = new CapturingHttpMessageHandler(ValidEmbeddingResponse);
+        var provider = CreateWithEmbeddingsBaseUrl(
+            handler,
+            embeddingsBaseUrl: null,
+            baseUrl: string.Empty);
+
+        // Act
+        Func<Task> act = () => provider.EmbedAsync(SampleRequest());
+
+        // Assert
+        var ex = (await act.Should().ThrowAsync<AiException>()).Which;
+        ex.Code.Should().Be(AiErrorCodes.NoBaseUrl);
+    }
+
+    [Fact]
+    public async Task EmbedAsync_SurfaceOverrideWinsOverPerRequestCredentialsBaseUrl()
+    {
+        // Arrange — pins decision #1: the configured surface base beats a per-request base
+        // (same precedence as decisions: ResolveDecisionsBaseUrl line 96-98)
+        using var handler = new CapturingHttpMessageHandler(ValidEmbeddingResponse);
+        var resolver = new Mock<ICredentialResolver>();
+        resolver
+            .Setup(r => r.ResolveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(() => new ValueTask<RequestCredentials?>(
+                new RequestCredentials { BaseUrl = "https://caller.example.com/" }));
+        var options = new OpenAICompatibleProviderOptions
+        {
+            BaseUrl = "https://test.example.com/v1/",
+            ApiKey = "fake-api-key",
+            Enabled = true,
+            EmbeddingsBaseUrl = "https://test.example.com/embed/"
+        };
+        var provider = new OpenAICompatibleProvider(
+            new HttpClient(handler), options,
+            new ProviderCatalog([
+                new ProviderDefinition
+                {
+                    Id = "test-provider", DisplayName = "Test provider",
+                    BaseUrl = "https://test.example.com/v1/", Protocol = EProviderProtocol.OpenAICompatible
+                }
+            ]),
+            "test-provider", NullLogger.Instance, resolver.Object);
+
+        // Act
+        await provider.EmbedAsync(SampleRequest());
+
+        // Assert — the surface override wins, not the per-request base
+        handler.LastRequest!.RequestUri!.AbsoluteUri
+            .Should().Be("https://test.example.com/embed/embeddings");
     }
 }

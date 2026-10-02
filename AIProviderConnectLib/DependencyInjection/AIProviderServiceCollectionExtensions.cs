@@ -184,6 +184,8 @@ public static class AIProviderServiceCollectionExtensions
             var embeddingsEntry = EndpointOperations.Find(definition.Endpoints, EndpointOperations.Embeddings);
             if (!string.IsNullOrEmpty(embeddingsEntry?.Path))
                 embeddings.EmbeddingsEndpoint = embeddingsEntry.Path;
+            if (!string.IsNullOrEmpty(embeddingsEntry?.BaseUrl))
+                embeddings.EmbeddingsBaseUrl = embeddingsEntry.BaseUrl;
         }
 
         if (options is IDecisionsEndpointOptions decisions)

@@ -22,6 +22,7 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
     private readonly string _modelsEndpoint;
     private readonly string _embeddingsEndpoint;
     private readonly string _defaultEmbeddingModel;
+    private readonly string? _embeddingsBaseUrl;
 
     protected OpenAICompatibleProviderBase(HttpClient httpClient, IProviderCatalog catalog, AIProviderOptions options, string providerId, ILogger? logger = null)
         : this(httpClient, catalog, options, providerId, logger ?? NullLogger.Instance, credentialResolver: null)
@@ -52,6 +53,7 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
                 nameof(options));
         _embeddingsEndpoint = embeddingsOptions.EmbeddingsEndpoint;
         _defaultEmbeddingModel = embeddingsOptions.DefaultEmbeddingModel;
+        _embeddingsBaseUrl = embeddingsOptions.EmbeddingsBaseUrl;
     }
 
     protected string ChatEndpoint => _chatEndpoint;
@@ -146,7 +148,7 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
             OpenAICompatibleWireProtocol.MapEmbeddingsRequest(requestWithModel),
             BuildHeaderConfigurator(credentials),
             OpenAICompatibleWireProtocol.ParseEmbeddingsResponse,
-            EffectiveBaseUrl(Options, credentials),
+            ResolveEmbeddingsBaseUrl(credentials),
             credentials,
             cancellationToken);
 
@@ -224,5 +226,30 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
         throw new AiException(
             AiErrorCodes.EmbeddingModelNotConfigured,
             $"Provider '{Id}' has no embedding model configured. Set DefaultEmbeddingModel in options or provide a model in the request.");
+    }
+
+    // The embeddings surface may live on a different root than the provider BaseUrl (the
+    // endpoints["embeddings"].baseUrl override). When the override is absent the effective
+    // base URL (per-request or configured) is used. When an API key is present, the resolved
+    // URL must be HTTPS to protect credentials in transit.
+    private string ResolveEmbeddingsBaseUrl(RequestCredentials? credentials)
+    {
+        var resolvedUrl = !string.IsNullOrWhiteSpace(_embeddingsBaseUrl)
+            ? _embeddingsBaseUrl!
+            : EffectiveBaseUrl(Options, credentials);
+
+        if (string.IsNullOrWhiteSpace(resolvedUrl))
+            throw new AiException(AiErrorCodes.NoBaseUrl, $"Provider '{Id}' is missing an embeddings base URL.");
+
+        var effectiveApiKey = EffectiveApiKey(Options, credentials);
+        if (!string.IsNullOrWhiteSpace(effectiveApiKey)
+            && Uri.TryCreate(resolvedUrl, UriKind.Absolute, out var uri)
+            && !uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new AiException(AiErrorCodes.InvalidRequest,
+                $"Provider '{Id}': embeddings base URL must use HTTPS when an API key is present.");
+        }
+
+        return resolvedUrl;
     }
 }
