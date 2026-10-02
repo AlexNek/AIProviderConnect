@@ -16,6 +16,7 @@
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="1.5*" />
                                 <ColumnDefinition Width="2*" />
                                 <ColumnDefinition Width="2*" />
                                 <ColumnDefinition Width="Auto" />
@@ -26,21 +27,51 @@
                                       SelectedItem="{Binding Operation, UpdateSourceTrigger=PropertyChanged}"
                                       Padding="6,4" Margin="0,0,6,0"
                                       ToolTip="Operation this endpoint serves" />
-                            <TextBox Grid.Column="1" Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox Grid.Column="1" Text="{Binding DefaultPath, Mode=OneWay}"
+                                     IsReadOnly="True" Padding="6,4" Margin="0,0,6,0"
+                                     Background="#F5F5F5" Foreground="#888"
+                                     ToolTip="Library default path for this operation (read-only)" />
+                            <TextBox Grid.Column="2" Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="6,4" Margin="0,0,6,0"
                                      ToolTip="Relative path resolved against the effective base URL" />
-                            <TextBox Grid.Column="2" Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox Grid.Column="3" Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="6,4" Margin="0,0,6,0"
                                      ToolTip="Optional base-URL override; empty means the definition's common base URL" />
-                            <ComboBox Grid.Column="3" Width="130"
+                            <ComboBox Grid.Column="4" Width="130"
                                       ItemsSource="{Binding KnownProtocols}"
                                       SelectedItem="{Binding Protocol, UpdateSourceTrigger=PropertyChanged}"
                                       Padding="6,4" Margin="0,0,6,0"
-                                      ToolTip="Optional protocol override; empty inherits the definition's protocol" />
-                            <Button Grid.Column="4" Content="&#x2715;" Padding="8,4"
+                                      ToolTip="Optional protocol override; empty inherits the definition's protocol">
+                                <ComboBox.Style>
+                                    <Style TargetType="ComboBox">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsProtocolOverrideAllowed}" Value="False">
+                                                <Setter Property="IsEnabled" Value="False" />
+                                                <Setter Property="Opacity" Value="0.3" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ComboBox.Style>
+                            </ComboBox>
+                            <Button Grid.Column="5" Content="&#x2715;" Padding="8,4"
                                     Command="{Binding RemoveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                     CommandParameter="{Binding}"
-                                    ToolTip="Remove this entry" />
+                                    ToolTip="Remove this entry">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSeeded}" Value="True">
+                                                <Setter Property="IsEnabled" Value="False" />
+                                                <Setter Property="Opacity" Value="0.3" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsAutoSeededDefault}" Value="True">
+                                                <Setter Property="IsEnabled" Value="False" />
+                                                <Setter Property="Opacity" Value="0.3" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </Grid>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

@@ -4,6 +4,8 @@ namespace ScraperTool.Models;
 
 public sealed class ModelSelectionItem
 {
+    public EModelCapability Capabilities { get; set; }
+
     public string CompletionPrice { get; set; } = string.Empty;
 
     public string ContextWindow { get; set; } = string.Empty;
@@ -44,6 +46,7 @@ public sealed class ModelSelectionItem
                                ? $"${m.CompletionPrice:0.######}"
                                : string.Empty,
                        IsFree = m.PromptPrice is 0 && m.CompletionPrice is 0,
+                       Capabilities = m.Capabilities,
                    };
     }
 

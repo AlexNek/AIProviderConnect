@@ -565,11 +565,19 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
             .GroupBy(e => e.Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Last().Value!, StringComparer.OrdinalIgnoreCase);
 
+        // Sync legacy flat fields into their auto-seeded EndpointConfiguration rows
+        // (entries without a baseUrl or protocol override) so edits to the flat
+        // properties are captured by the save path.
+        SyncFlatFieldToRow(EndpointOperations.Chat, ChatEndpoint);
+        SyncFlatFieldToRow(EndpointOperations.Models, ModelsEndpoint);
+        SyncFlatFieldToRow(EndpointOperations.Messages, MessagesEndpoint);
+
         var endpoints = EndpointConfiguration
             .Where(e => !string.IsNullOrWhiteSpace(e.Operation)
                         && (!string.IsNullOrWhiteSpace(e.Path)
                             || !string.IsNullOrWhiteSpace(e.BaseUrl)
-                            || !string.IsNullOrWhiteSpace(e.Protocol)))
+                            || !string.IsNullOrWhiteSpace(e.Protocol))
+                        && !IsAutoSeededDefaultWithNoOverride(e))
             .GroupBy(e => e.Operation.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 g => g.Key,
@@ -578,6 +586,7 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
                             Path = NullIfEmpty(g.Last().Path),
                             BaseUrl = NullIfEmpty(g.Last().BaseUrl),
                             Protocol = string.IsNullOrWhiteSpace(g.Last().Protocol)
+                                        || g.Last().Protocol == EndpointConfigEntry.InheritProtocolDisplay
                                 ? null
                                 : ProviderProtocolMapper.FromJson(g.Last().Protocol)
                         },
@@ -601,6 +610,47 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
 
     private static string? NullIfEmpty(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>
+    /// True when <paramref name="entry"/> was auto-seeded with a library default and
+    /// the user has not changed the path or added a baseUrl/protocol override. Such
+    /// entries are visible reference rows in the editor but must not be written to
+    /// the JSON (the library would reject them as no-op entries).
+    /// </summary>
+    private static bool IsAutoSeededDefaultWithNoOverride(EndpointConfigEntry entry)
+    {
+        if (!entry.IsAutoSeededDefault)
+        {
+            return false;
+        }
+
+        var hasBaseUrl = !string.IsNullOrWhiteSpace(entry.BaseUrl);
+        var hasProtocol = !string.IsNullOrWhiteSpace(entry.Protocol)
+                          && entry.Protocol != EndpointConfigEntry.InheritProtocolDisplay;
+        var pathDiffersFromDefault = !string.Equals(
+            entry.Path, entry.DefaultPath, StringComparison.OrdinalIgnoreCase);
+
+        return !hasBaseUrl && !hasProtocol && !pathDiffersFromDefault;
+    }
+
+    /// <summary>
+    /// Pushes the current flat-field value (e.g. <see cref="MessagesEndpoint"/>)
+    /// into the matching <see cref="EndpointConfiguration"/> row when that row is
+    /// a simple auto-seeded entry (no baseUrl or protocol override). Explicit
+    /// overrides created through the endpoint editor keep their own path.
+    /// </summary>
+    private void SyncFlatFieldToRow(string operation, string flatValue)
+    {
+        var entry = EndpointConfiguration
+            .FirstOrDefault(e => string.Equals(e.Operation, operation, StringComparison.OrdinalIgnoreCase));
+        if (entry is not null
+            && string.IsNullOrWhiteSpace(entry.BaseUrl)
+            && (string.IsNullOrWhiteSpace(entry.Protocol)
+                || entry.Protocol == EndpointConfigEntry.InheritProtocolDisplay))
+        {
+            entry.Path = flatValue;
+        }
+    }
 
     private ProviderResearchMetadata BuildResearchMetadata()
     {
@@ -1496,10 +1546,58 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
                                                      Path = kvp.Value.Path ?? string.Empty,
                                                      BaseUrl = kvp.Value.BaseUrl ?? string.Empty,
                                                      Protocol = kvp.Value.Protocol is null
-                                                         ? string.Empty
+                                                         ? EndpointConfigEntry.InheritProtocolDisplay
                                                          : ProviderProtocolMapper.ToJson(kvp.Value.Protocol.Value)
                                                  });
             }
+        }
+
+        // Seed from legacy flat fields not already covered by the endpoints dictionary
+        // so the unified editor shows all endpoint data, including defaults.
+        SeedFlatFieldIfMissing(EndpointOperations.Chat, def.ChatEndpoint);
+        SeedFlatFieldIfMissing(EndpointOperations.Models, def.ModelsEndpoint);
+        SeedFlatFieldIfMissing(EndpointOperations.Messages, def.MessagesEndpoint);
+
+        // Seed embeddings with its library default for OpenAI-compatible and hybrid-
+        // gateway providers (the only protocols whose class implements IEmbeddingProvider)
+        // so the editor shows the operation even when the definition has no explicit
+        // entry. Decisions are NOT auto-seeded: only providers with an explicit
+        // decisions override in their endpoints block need the row.
+        SeedEmbeddingsDefaultIfApplicable(def.Protocol, def.Endpoints);
+
+        void SeedFlatFieldIfMissing(string operation, string flatValue)
+        {
+            if (!string.IsNullOrWhiteSpace(flatValue)
+                && EndpointOperations.Find(def.Endpoints, operation) is null)
+            {
+                EndpointConfiguration.Add(new EndpointConfigEntry
+                                                 {
+                                                     Operation = operation,
+                                                     Path = flatValue,
+                                                     IsSeeded = true
+                                                 });
+            }
+        }
+
+        void SeedEmbeddingsDefaultIfApplicable(
+            EProviderProtocol protocol,
+            IReadOnlyDictionary<string, EndpointDefinition>? endpoints)
+        {
+            if (protocol is not (EProviderProtocol.OpenAICompatible or EProviderProtocol.HybridGateway))
+            {
+                return;
+            }
+
+            if (EndpointOperations.Find(endpoints, EndpointOperations.Embeddings) is not null
+                || EndpointConfiguration.Any(e => string.Equals(e.Operation, EndpointOperations.Embeddings, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            var entry = new EndpointConfigEntry
+                            { Operation = EndpointOperations.Embeddings, IsAutoSeededDefault = true };
+            entry.Path = entry.DefaultPath;
+            EndpointConfiguration.Add(entry);
         }
     }
 }

@@ -5,6 +5,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
+using AIProviderConnect.Models;
+
 using ScraperTool.Models;
 
 namespace ScraperTool.Views;
@@ -18,6 +20,8 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
     private string? _initialSelectionId;
 
     private string? _modalityFilterToken;
+
+    private EModelCapability? _capabilityFilterFlag;
 
     public ObservableCollection<ModelSelectionItem> AllModels { get; } = [];
 
@@ -91,7 +95,10 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
                                        _modalityFilterToken,
                                        StringComparison.OrdinalIgnoreCase) ?? false);
 
-            if (matchesText && matchesModality)
+            var matchesCapability = !_capabilityFilterFlag.HasValue ||
+                                    m.Capabilities.HasFlag(_capabilityFilterFlag.Value);
+
+            if (matchesText && matchesModality && matchesCapability)
                 FilteredModels.Add(m);
         }
     }
@@ -162,6 +169,34 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
                     "🎬 video" => "🎬",
                     "📄 file" => "📄",
                     "💻 code" => "💻",
+                    _ => null
+                };
+            ApplyFilter();
+        }
+    }
+
+    private void OnCapabilitySelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CapabilityFilter.SelectedItem is ComboBoxItem item)
+        {
+            var content = item.Content?.ToString();
+            _capabilityFilterFlag = content switch
+                {
+                    "All" => null,
+                    "Text Generation" => EModelCapability.TextGeneration,
+                    "Structured Output" => EModelCapability.StructuredOutput,
+                    "Tool Calling" => EModelCapability.ToolCalling,
+                    "Embedding" => EModelCapability.Embedding,
+                    "Reranker" => EModelCapability.Reranker,
+                    "Image Recognition" => EModelCapability.ImageRecognition,
+                    "Image Generation" => EModelCapability.ImageGeneration,
+                    "Audio Recognition" => EModelCapability.AudioRecognition,
+                    "Text to Speech" => EModelCapability.TextToSpeech,
+                    "Audio Generation" => EModelCapability.AudioGeneration,
+                    "Video Transcription" => EModelCapability.VideoTranscription,
+                    "Video Recognition" => EModelCapability.VideoRecognition,
+                    "Video Generation" => EModelCapability.VideoGeneration,
+                    "Decision" => EModelCapability.Decision,
                     _ => null
                 };
             ApplyFilter();

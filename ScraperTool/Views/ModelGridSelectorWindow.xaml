@@ -64,6 +64,26 @@
                 <ComboBoxItem Content="📄 file" />
                 <ComboBoxItem Content="💻 code" />
             </ComboBox>
+            <TextBlock Text="Filter by capability" Foreground="#777" FontSize="11" Margin="0,10,0,2" />
+            <ComboBox x:Name="CapabilityFilter" Width="260" HorizontalAlignment="Left"
+                      Margin="0,0,0,0" SelectedIndex="0"
+                      SelectionChanged="OnCapabilitySelectionChanged">
+                <ComboBoxItem Content="All" />
+                <ComboBoxItem Content="Text Generation" />
+                <ComboBoxItem Content="Structured Output" />
+                <ComboBoxItem Content="Tool Calling" />
+                <ComboBoxItem Content="Embedding" />
+                <ComboBoxItem Content="Reranker" />
+                <ComboBoxItem Content="Image Recognition" />
+                <ComboBoxItem Content="Image Generation" />
+                <ComboBoxItem Content="Audio Recognition" />
+                <ComboBoxItem Content="Text to Speech" />
+                <ComboBoxItem Content="Audio Generation" />
+                <ComboBoxItem Content="Video Transcription" />
+                <ComboBoxItem Content="Video Recognition" />
+                <ComboBoxItem Content="Video Generation" />
+                <ComboBoxItem Content="Decision" />
+            </ComboBox>
         </StackPanel>
 
         <DataGrid Grid.Row="2" x:Name="ModelGrid"

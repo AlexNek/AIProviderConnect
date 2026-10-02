@@ -53,13 +53,20 @@ public class ProviderManualEditorViewModelTests
         // Act
         var vm = harness.ViewModel;
 
-        // Assert
-        vm.EndpointConfiguration.Should().HaveCount(1);
-        var row = vm.EndpointConfiguration[0];
-        row.Operation.Should().Be("decisions");
-        row.Path.Should().Be("alpha/decisions");
-        row.BaseUrl.Should().Be("https://api.test.example.com/api/");
-        row.Protocol.Should().Be("decision");
+        // Assert — decisions from the endpoints block, chat/models/messages seeded
+        // from legacy flat fields, and embeddings auto-seeded with its library default.
+        vm.EndpointConfiguration.Should().HaveCount(5);
+        var decisions = vm.EndpointConfiguration.First(r => r.Operation == "decisions");
+        decisions.Path.Should().Be("alpha/decisions");
+        decisions.BaseUrl.Should().Be("https://api.test.example.com/api/");
+        decisions.Protocol.Should().Be("decision");
+        var messages = vm.EndpointConfiguration.First(r => r.Operation == "messages");
+        messages.Path.Should().Be("v1/messages");
+        vm.EndpointConfiguration.First(r => r.Operation == "chat").Path.Should().Be("chat/completions");
+        vm.EndpointConfiguration.First(r => r.Operation == "models").Path.Should().Be("models");
+        var embeddings = vm.EndpointConfiguration.First(r => r.Operation == "embeddings");
+        embeddings.Path.Should().Be(EndpointDefaults.Embeddings);
+        embeddings.IsAutoSeededDefault.Should().BeTrue();
         vm.MessagesEndpoint.Should().Be("v1/messages");
     }
 
@@ -91,7 +98,7 @@ public class ProviderManualEditorViewModelTests
         var vm = harness.ViewModel;
 
         // Act
-        var row = vm.EndpointConfiguration[0];
+        var row = vm.EndpointConfiguration.First(r => r.Operation == "decisions");
         row.Path = "beta/decisions";
         row.BaseUrl = "https://override.test.example.com/api/";
         vm.SaveCommand.Execute(null);
@@ -113,16 +120,22 @@ public class ProviderManualEditorViewModelTests
 
         // Act — an empty row and a row with an operation but nothing else
         vm.AddEndpointConfigEntryCommand.Execute(null);
-        vm.EndpointConfiguration[1].Path = "orphan/path";
+        vm.EndpointConfiguration[5].Path = "orphan/path";
         vm.AddEndpointConfigEntryCommand.Execute(null);
         vm.SaveCommand.Execute(null);
 
-        // Assert
+        // Assert — chat + decisions + messages + models (seeded from flat fields and
+        // the endpoints block) + embeddings (auto-seeded default); rows without an
+        // operation or with all fields empty are dropped, and auto-seeded defaults
+        // with no override are not written.
         var def = JsonSerializer.Deserialize<ProviderDefinition>(
             File.ReadAllText(harness.ProviderFilePath), ReadOptions)!;
         def.Endpoints.Should().NotBeNull();
-        def.Endpoints.Should().HaveCount(1, "rows without an operation or with all fields empty are dropped");
+        def.Endpoints.Should().HaveCount(4, "auto-seeded defaults with no override and rows without an operation are dropped");
         def.Endpoints.Should().ContainKey("decisions");
+        def.Endpoints.Should().ContainKey("messages");
+        def.Endpoints.Should().ContainKey("chat");
+        def.Endpoints.Should().ContainKey("models");
     }
 
     [Fact]
@@ -134,7 +147,7 @@ public class ProviderManualEditorViewModelTests
 
         // Act — a second "decisions" row must win
         vm.AddEndpointConfigEntryCommand.Execute(null);
-        var duplicate = vm.EndpointConfiguration[1];
+        var duplicate = vm.EndpointConfiguration[5];
         duplicate.Operation = "decisions";
         duplicate.Path = "gamma/decisions";
         vm.SaveCommand.Execute(null);
@@ -142,7 +155,7 @@ public class ProviderManualEditorViewModelTests
         // Assert
         var def = JsonSerializer.Deserialize<ProviderDefinition>(
             File.ReadAllText(harness.ProviderFilePath), ReadOptions)!;
-        def.Endpoints!.Should().HaveCount(1);
+        def.Endpoints!.Should().HaveCount(4);
         def.Endpoints["decisions"]!.Path.Should().Be("gamma/decisions");
     }
 
@@ -153,37 +166,39 @@ public class ProviderManualEditorViewModelTests
         using var harness = CreateViewModel(ProviderJson);
         var vm = harness.ViewModel;
 
-        // Act
+        // Act — editing the flat property updates the seeded EndpointConfiguration row
         vm.MessagesEndpoint = "anthropic/messages";
         vm.SaveCommand.Execute(null);
 
-        // Assert
+        // Assert — the messages path moved into the endpoints block; the serializer
+        // drops the flat member because the block now owns the operation.
         var json = File.ReadAllText(harness.ProviderFilePath);
-        JsonNode.Parse(json)!["messagesEndpoint"]!.GetValue<string>().Should().Be("anthropic/messages");
+        var root = JsonNode.Parse(json)!;
+        root["messagesEndpoint"].Should().BeNull("flat member is suppressed when endpoints block owns the operation");
+        root["endpoints"]!["messages"]!["path"]!.GetValue<string>().Should().Be("anthropic/messages");
     }
 
     [Fact]
     public void OptionLists_MatchLibraryVocabulary()
     {
         // Arrange
-        var expectedOperations = new[]
-        {
+        var expectedOperations = new[] { string.Empty,
             EndpointOperations.Chat, EndpointOperations.Models,
             EndpointOperations.Messages, EndpointOperations.Embeddings,
             EndpointOperations.Decisions
         };
-        var expectedProtocols = new[] { string.Empty }
+        var expectedProtocols = new[] { EndpointConfigEntry.InheritProtocolDisplay }
             .Concat(Enum.GetValues<EProviderProtocol>().Select(ProviderProtocolMapper.ToJson))
             .ToArray();
 
         // Act
-        var operations = EndpointConfigEntry.KnownOperations;
-        var protocols = EndpointConfigEntry.KnownProtocols;
+        var operations = EndpointConfigEntry.KnownOperationsStatic;
+        var protocols = EndpointConfigEntry.KnownProtocolsStatic;
 
         // Assert
         operations.Should().Equal(expectedOperations);
         protocols.Should().Equal(expectedProtocols);
-        protocols.First().Should().BeEmpty("the first protocol choice is the inherit choice");
+        protocols.First().Should().Be(EndpointConfigEntry.InheritProtocolDisplay, "the first protocol choice is the visible inherit choice");
     }
 
     private static EditorHarness CreateViewModel(string json)
