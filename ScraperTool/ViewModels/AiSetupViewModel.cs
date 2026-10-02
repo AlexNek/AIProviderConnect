@@ -37,6 +37,10 @@ public sealed partial class AiSetupViewModel : ObservableObject
 
     private List<AIModel>? _loadedAIModels;
 
+    private string? _loadedFromApiKey;
+
+    private string? _loadedFromProviderId;
+
     [ObservableProperty]
     private string _primaryModel = string.Empty;
 
@@ -55,9 +59,11 @@ public sealed partial class AiSetupViewModel : ObservableObject
 
     public ObservableCollection<ProviderSelectionItem> Options { get; } = [];
 
+    // Reads the values currently in the dialog rather than the saved settings, so a provider can be
+    // evaluated (model list included) before Save is pressed — the same way Test Connection works.
     private bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(_settings.ApiKey)
-        && !string.IsNullOrWhiteSpace(_settings.SelectedProviderId);
+        !string.IsNullOrWhiteSpace(ApiKey)
+        && SelectedProvider is not null;
 
     public AiSetupViewModel(
         AppSettings settings,
@@ -119,41 +125,49 @@ public sealed partial class AiSetupViewModel : ObservableObject
 
     private async Task<AIModel?> FindModelInProviderListingAsync(string modelId)
     {
-        if (_loadedAIModels is not null)
-            return _loadedAIModels.FirstOrDefault(m =>
-                m.Id.Equals(modelId, StringComparison.OrdinalIgnoreCase));
+        try
+        {
+            await EnsureModelsLoadedAsync();
+        }
+        catch
+        {
+            // Price refresh is best-effort: an unreachable provider must not raise a dialog here.
+        }
 
-        var providerId = _settings.SelectedProviderId;
+        return _loadedAIModels?.FirstOrDefault(m =>
+            m.Id.Equals(modelId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Loads the model list of the provider and API key currently chosen in the dialog, refetching
+    /// whenever either changes. Discovery used to run against the last saved provider and key and was
+    /// then cached for the whole dialog session, so selecting a different provider (for example
+    /// OpenRouter, whose catalog is far larger) kept showing the previous provider's rows.
+    /// </summary>
+    private async Task EnsureModelsLoadedAsync()
+    {
+        var providerId = SelectedProvider?.ProviderId ?? _settings.SelectedProviderId;
         if (string.IsNullOrWhiteSpace(providerId))
-            return null;
+            throw new InvalidOperationException("Select a provider first.");
 
-        IAIProvider providerInstance;
-        try
-        {
-            providerInstance = _providerFactory.GetProvider(providerId);
-        }
-        catch
-        {
-            return null;
-        }
+        var apiKey = ApiKey ?? _settings.ApiKey ?? string.Empty;
+        if (LoadedModels.Count > 0
+            && string.Equals(_loadedFromProviderId, providerId, StringComparison.Ordinal)
+            && string.Equals(_loadedFromApiKey, apiKey, StringComparison.Ordinal))
+            return;
 
-        if (!TryGetDiscoveryProvider(providerInstance, out var discoveryProvider))
-            return null;
+        var provider = _providerFactory.GetProvider(providerId, apiKey);
+        if (!TryGetDiscoveryProvider(provider, out var discoveryProvider))
+            throw new InvalidOperationException(
+                "Selected provider does not support model discovery.");
 
-        try
-        {
-            var models = await discoveryProvider.GetModelsAsync();
-            _loadedAIModels = models.ToList();
-            LoadedModels.Clear();
-            foreach (var m in models.OrderBy(m => m.Id))
-                LoadedModels.Add(ModelSelectionItem.FromAIModel(m));
-            return _loadedAIModels.FirstOrDefault(m =>
-                m.Id.Equals(modelId, StringComparison.OrdinalIgnoreCase));
-        }
-        catch
-        {
-            return null;
-        }
+        var models = await discoveryProvider.GetModelsAsync();
+        _loadedAIModels = models.ToList();
+        LoadedModels.Clear();
+        foreach (var m in models.OrderBy(m => m.Id))
+            LoadedModels.Add(ModelSelectionItem.FromAIModel(m));
+        _loadedFromProviderId = providerId;
+        _loadedFromApiKey = apiKey;
     }
 
     private static string FormatPriceText(decimal? prompt, decimal? completion)
@@ -278,38 +292,29 @@ public sealed partial class AiSetupViewModel : ObservableObject
             return;
         }
 
-        if (LoadedModels.Count == 0)
+        try
         {
-            try
-            {
-                var provider =
-                    _providerFactory.GetProvider(_settings.SelectedProviderId ?? string.Empty);
-                if (!TryGetDiscoveryProvider(provider, out var discoveryProvider))
-                    throw new InvalidOperationException(
-                        "Selected provider does not support model discovery.");
-                var models = await discoveryProvider.GetModelsAsync();
-                _loadedAIModels = models.ToList();
-                LoadedModels.Clear();
-                foreach (var m in models.OrderBy(m => m.Id))
-                    LoadedModels.Add(ModelSelectionItem.FromAIModel(m));
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Failed to load models");
-                MessageBox.Show(
-                    $"Failed to load models: {ex.Message}",
-                    "Error",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-                return;
-            }
+            await EnsureModelsLoadedAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to load models");
+            MessageBox.Show(
+                $"Failed to load models: {ex.Message}",
+                "Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return;
         }
 
         var window = new ModelGridSelectorWindow
                          {
                              Owner = GetActiveWindow() ?? Application.Current.MainWindow
                          };
-        window.LoadModels(LoadedModels, initialSelectionId: currentModelId);
+        window.LoadModels(
+            LoadedModels,
+            initialSelectionId: currentModelId,
+            sourceLabel: SelectedProvider?.DisplayName ?? _settings.SelectedProviderId);
         if (window.ShowDialog() == true && window.SelectedItem is not null)
         {
             setId(window.SelectedItem.Id);

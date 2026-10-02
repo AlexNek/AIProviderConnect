@@ -28,6 +28,10 @@ public sealed class ModelSelectionItem
     // Modalities column shows icons, which cannot be typed into the text filter.
     public string ModalityWords { get; set; } = string.Empty;
 
+    // Id without its owner prefix ("gpt-4o" from "openai/gpt-4o") — the Name column displays and sorts
+    // by this, so names line up alphabetically across owners instead of clustering under each prefix.
+    public string Name { get; set; } = string.Empty;
+
     public string? OwnedBy { get; set; }
 
     public string PromptPrice { get; set; } = string.Empty;
@@ -46,6 +50,7 @@ public sealed class ModelSelectionItem
                        OwnedBy = owner,
                        Modalities = ParseModalities(m.Modality),
                        ModalityWords = m.Modality ?? string.Empty,
+                       Name = m.Id.Contains('/') ? m.Id[(m.Id.LastIndexOf('/') + 1)..] : m.Id,
                        ContextWindow =
                            m.ContextWindow is > 0 ? $"{m.ContextWindow:N0}" : string.Empty,
                        PromptPrice =

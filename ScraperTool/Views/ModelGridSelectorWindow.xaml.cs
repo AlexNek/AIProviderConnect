@@ -19,6 +19,8 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 
     private string? _initialSelectionId;
 
+    private string _sourceLabel = string.Empty;
+
     private string? _modalityFilterToken;
 
     private EModelCapability? _capabilityFilterFlag;
@@ -48,7 +50,8 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 
     public void LoadModels(
         IEnumerable<ModelSelectionItem> models,
-        string? initialSelectionId = null)
+        string? initialSelectionId = null,
+        string? sourceLabel = null)
     {
         AllModels.Clear();
         FilteredModels.Clear();
@@ -59,15 +62,32 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         }
 
         _initialSelectionId = initialSelectionId;
+        _sourceLabel = sourceLabel ?? string.Empty;
+        UpdateHeader();
+    }
+
+    // Names the provider and states the row count, so a short list is recognisable as a short list
+    // instead of being mistaken for the provider's whole catalog.
+    private void UpdateHeader()
+    {
+        if (HeaderLabel is null)
+            return;
+
+        var source = _sourceLabel.Length > 0 ? $" — {_sourceLabel}" : string.Empty;
+        var total = AllModels.Count;
+        HeaderLabel.Text = FilteredModels.Count == total
+            ? $"Select a model{source} · {total} models"
+            : $"Select a model{source} · {FilteredModels.Count} of {total} models";
     }
 
     private void ApplyDefaultPriceSort()
     {
-        // Sort by prompt price first, then completion price, then id.
+        // Sort by prompt price first, then completion price, then model name — the name, not the full
+        // id, so equal-priced models from one owner are not interleaved by their owner prefix.
         var sorted = FilteredModels
             .OrderBy(m => ParsePrice(m.PromptPrice))
             .ThenBy(m => ParsePrice(m.CompletionPrice))
-            .ThenBy(m => m.Id)
+            .ThenBy(m => m.Name)
             .ToList();
 
         FilteredModels.Clear();
@@ -81,8 +101,9 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         FilteredModels.Clear();
         foreach (var m in AllModels)
         {
-            // Every field probed here has a visible column (Model ID, Owner, Modalities
-            // tooltip, Description) so a user can always see why a row matched.
+            // Every field probed here is on screen: name in the Name column, owner in the Owner column,
+            // modality words in the Modalities tooltip, and the Description column. The id is searched
+            // too, and it is the two visible parts joined, so a match is always explainable.
             var matchesText = q.Length == 0 ||
                               m.Id.Contains(q, StringComparison.OrdinalIgnoreCase) ||
                               (m.Description?.Contains(q, StringComparison.OrdinalIgnoreCase)
@@ -102,6 +123,8 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
             if (matchesText && matchesModality && matchesCapability)
                 FilteredModels.Add(m);
         }
+
+        UpdateHeader();
     }
 
     private void ApplyInitialSelection()
@@ -134,7 +157,7 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         var col = ModelGrid.CurrentCell.Column;
         var value = col.Header?.ToString() switch
             {
-                "Model ID" => row.Id,
+                "Name" => row.Id,
                 "Owner" => row.OwnedBy ?? string.Empty,
                 "Modalities" => row.Modalities,
                 "Capabilities" => row.CapabilitiesText,

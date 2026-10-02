@@ -27,7 +27,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Select a model:" Margin="0,0,0,6" Foreground="#555" />
+        <TextBlock Grid.Row="0" x:Name="HeaderLabel" Text="Select a model:" Margin="0,0,0,6" Foreground="#555" />
 
         <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,6">
             <TextBlock Text="Filter by text" Foreground="#777" FontSize="11" Margin="0,0,0,2" />
@@ -42,7 +42,7 @@
                                     <Setter.Value>
                                         <VisualBrush Stretch="None" AlignmentX="Left">
                                             <VisualBrush.Visual>
-                                                <TextBlock Text="Filter by id, owner, modality, description…" Foreground="#AAA" Margin="4,2" />
+                                                <TextBlock Text="Filter by name, owner, modality, description…" Foreground="#AAA" Margin="4,2" />
                                             </VisualBrush.Visual>
                                         </VisualBrush>
                                     </Setter.Value>
@@ -108,14 +108,21 @@
                 </ContextMenu>
             </DataGrid.ContextMenu>
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Model ID" Binding="{Binding Id}" Width="220">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                            <Setter Property="ToolTip" Value="{Binding Id}" />
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
+                <!-- The list is browsed and sorted by the bare model name; the complete id, which is what
+                     the API needs, stays in the tooltip and in every copy path (cell, row, Ctrl+C). -->
+                <DataGridTemplateColumn Header="Name" SortMemberPath="Name" ClipboardContentBinding="{Binding Id}" Width="220">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis">
+                                <TextBlock.ToolTip>
+                                    <ToolTip MaxWidth="420">
+                                        <TextBlock Text="{Binding Id}" TextWrapping="Wrap" />
+                                    </ToolTip>
+                                </TextBlock.ToolTip>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <!-- Owner is searched by the text filter, so it must stay visible. -->
                 <DataGridTextColumn Header="Owner" Binding="{Binding OwnedBy}" Width="110">
                     <DataGridTextColumn.ElementStyle>

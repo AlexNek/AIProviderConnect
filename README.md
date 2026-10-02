@@ -210,4 +210,6 @@ MIT — see [LICENSE.txt](LICENSE.txt)
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md)
+Package releases: [CHANGELOG.md](CHANGELOG.md)
+
+ScraperTool — the desktop tool, which ships as source and not inside the package — keeps its own record at [ScraperTool/CHANGELOG.md](ScraperTool/CHANGELOG.md)
