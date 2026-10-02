@@ -14,6 +14,10 @@ work in progress lives under `## [Unreleased]`.
 
 ### Added
 - Manual editor: unified Endpoint Overrides editor for all endpoint data (path, optional base-URL override, optional protocol override). Legacy flat fields are auto-seeded into the editor on load (marked as non-deletable so essential endpoints cannot be accidentally removed), and edits to the flat properties sync back into the matching row so the data survives save. The protocol override ComboBox is disabled for `chat`, `models`, `messages`, and `embeddings` rows — these operations are always served by the provider's root protocol class; only `decisions` allows a per-endpoint protocol switch
+- Model picker: `LoadModels` accepts an optional `requiredCapability` parameter so the caller can name the default capability selection (e.g. `TextGeneration` for chat model picking); the selector opens on that choice instead of All. The filter is not enforced until Feature 17 populates model capabilities
+
+### Changed
+- Model picker: the capability filter dropdown now lists exactly **All, Chat, Embedding, Decision** (Chat maps to `TextGeneration`) instead of every `EModelCapability` member, matching the model-kind selector the feature design specifies
 
 ### Fixed
 - Model picker: models are browsed by **Name** and **Owner** in separate columns, and text filtering no longer matches fields the grid hides. The Name column shows the id without its owner prefix (`gpt-4o` for `openai/gpt-4o`) and is the value its header sorts on, so names line up alphabetically across owners instead of clustering under each provider prefix; the default price sort uses that name as its tie-break. The complete id — the value the API needs — stays one hover away in the cell tooltip and is what every copy path and the selection itself produce, and the filter box spells out the searched fields

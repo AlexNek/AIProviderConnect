@@ -149,6 +149,11 @@ public static class AIProviderServiceCollectionExtensions
             var models = EndpointOperations.Find(definition.Endpoints, EndpointOperations.Models);
             if (!string.IsNullOrEmpty(models?.Path))
                 chatModels.ModelsEndpoint = models.Path;
+
+            // Feature 18: append the widening query parameter to the models endpoint path
+            // so the existing request pipeline carries it without any further changes.
+            if (!string.IsNullOrEmpty(models?.AdditionalQueryParameter))
+                chatModels.ModelsEndpoint += "?" + models.AdditionalQueryParameter;
         }
 
         if (options is MessagesApiOptions messages)
@@ -167,6 +172,9 @@ public static class AIProviderServiceCollectionExtensions
             var messagesModels = EndpointOperations.Find(definition.Endpoints, EndpointOperations.Models);
             if (!string.IsNullOrEmpty(messagesModels?.Path))
                 messages.ModelsEndpoint = messagesModels.Path;
+
+            if (!string.IsNullOrEmpty(messagesModels?.AdditionalQueryParameter))
+                messages.ModelsEndpoint += "?" + messagesModels.AdditionalQueryParameter;
         }
 
         if (options is KeyQueryOptions keyQuery)
@@ -177,6 +185,9 @@ public static class AIProviderServiceCollectionExtensions
             var keyQueryModels = EndpointOperations.Find(definition.Endpoints, EndpointOperations.Models);
             if (!string.IsNullOrEmpty(keyQueryModels?.Path))
                 keyQuery.ModelsEndpoint = keyQueryModels.Path;
+
+            if (!string.IsNullOrEmpty(keyQueryModels?.AdditionalQueryParameter))
+                keyQuery.ModelsEndpoint += "?" + keyQueryModels.AdditionalQueryParameter;
         }
 
         if (options is IEmbeddingsEndpointOptions embeddings)

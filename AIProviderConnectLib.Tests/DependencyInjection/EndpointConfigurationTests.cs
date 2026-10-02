@@ -309,4 +309,99 @@ public class EndpointConfigurationTests
         // Assert
         act.Should().NotThrow();
     }
+
+    [Fact]
+    public void Validate_ValidAdditionalQueryParameter_Passes()
+    {
+        // Arrange
+        var definition = Definition(endpoints: Endpoints(
+            "models", new EndpointDefinition
+            {
+                Path = "models",
+                AdditionalQueryParameter = "output_modalities=all"
+            }));
+
+        // Act
+        var act = () => EndpointConfiguration.Validate(ProviderId, definition);
+
+        // Assert
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Validate_AdditionalQueryParameterOnly_Passes()
+    {
+        // Arrange — an entry with only additionalQueryParameter is valid: "keep the default
+        // path, add a widening query parameter"
+        var definition = Definition(endpoints: Endpoints(
+            "models", new EndpointDefinition
+            {
+                AdditionalQueryParameter = "output_modalities=all"
+            }));
+
+        // Act
+        var act = () => EndpointConfiguration.Validate(ProviderId, definition);
+
+        // Assert
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Validate_AdditionalQueryParameterStartingWithQuestionMark_ThrowsConfigurationError()
+    {
+        // Arrange
+        var definition = Definition(endpoints: Endpoints(
+            "models", new EndpointDefinition
+            {
+                Path = "models",
+                AdditionalQueryParameter = "?output_modalities=all"
+            }));
+
+        // Act
+        var act = () => EndpointConfiguration.Validate(ProviderId, definition);
+
+        // Assert
+        act.Should().Throw<AiException>()
+            .Which.Code.Should().Be(AiErrorCodes.ConfigurationError);
+        act.Should().Throw<AiException>()
+            .Which.Message.Should().Contain("additionalQueryParameter");
+    }
+
+    [Fact]
+    public void Validate_AdditionalQueryParameterContainingHash_ThrowsConfigurationError()
+    {
+        // Arrange
+        var definition = Definition(endpoints: Endpoints(
+            "models", new EndpointDefinition
+            {
+                Path = "models",
+                AdditionalQueryParameter = "output_modalities=all#fragment"
+            }));
+
+        // Act
+        var act = () => EndpointConfiguration.Validate(ProviderId, definition);
+
+        // Assert
+        act.Should().Throw<AiException>()
+            .Which.Message.Should().Contain("additionalQueryParameter");
+    }
+
+    [Fact]
+    public void Validate_AdditionalQueryParameterContainingSpace_ThrowsConfigurationError()
+    {
+        // Arrange
+        var definition = Definition(endpoints: Endpoints(
+            "models", new EndpointDefinition
+            {
+                Path = "models",
+                AdditionalQueryParameter = "output_modalities=all value"
+            }));
+
+        // Act
+        var act = () => EndpointConfiguration.Validate(ProviderId, definition);
+
+        // Assert
+        act.Should().Throw<AiException>()
+            .Which.Message.Should().Contain("additionalQueryParameter");
+    }
 }

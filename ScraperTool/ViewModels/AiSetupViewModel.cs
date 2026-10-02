@@ -314,7 +314,8 @@ public sealed partial class AiSetupViewModel : ObservableObject
         window.LoadModels(
             LoadedModels,
             initialSelectionId: currentModelId,
-            sourceLabel: SelectedProvider?.DisplayName ?? _settings.SelectedProviderId);
+            sourceLabel: SelectedProvider?.DisplayName ?? _settings.SelectedProviderId,
+            requiredCapability: EModelCapability.TextGeneration);
         if (window.ShowDialog() == true && window.SelectedItem is not null)
         {
             setId(window.SelectedItem.Id);

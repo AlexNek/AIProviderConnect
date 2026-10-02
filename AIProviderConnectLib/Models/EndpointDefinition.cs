@@ -10,7 +10,8 @@ namespace AIProviderConnect.Models;
 /// operation's effective base URL (the <see cref="BaseUrl"/> override when present,
 /// otherwise the definition's common <c>baseUrl</c>); <see cref="BaseUrl"/> is used only
 /// when the surface does not sit under the definition's common base; <see cref="Protocol"/>
-/// overrides the operation's wire family.
+/// overrides the operation's wire family; <see cref="AdditionalQueryParameter"/> is an
+/// opaque query parameter appended to the endpoint path at the seeding seam (Feature 18).
 /// </summary>
 public sealed record EndpointDefinition
 {
@@ -38,4 +39,14 @@ public sealed record EndpointDefinition
     [JsonConverter(typeof(EProviderProtocolNullableJsonConverter))]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public EProviderProtocol? Protocol { get; init; }
+
+    /// <summary>
+    /// Gets an opaque additional query parameter appended to the endpoint path when the
+    /// request is assembled (e.g. <c>"output_modalities=all"</c>). The seeding step appends
+    /// <c>?{value}</c> to the endpoint path; the value must not start with <c>?</c> and must
+    /// not contain an unencoded <c>#</c> or space. When null the endpoint path is unchanged.
+    /// </summary>
+    [JsonPropertyName("additionalQueryParameter")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AdditionalQueryParameter { get; init; }
 }

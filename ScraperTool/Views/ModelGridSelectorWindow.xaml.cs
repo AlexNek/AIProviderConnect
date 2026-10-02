@@ -100,7 +100,8 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
     public void LoadModels(
         IEnumerable<ModelSelectionItem> models,
         string? initialSelectionId = null,
-        string? sourceLabel = null)
+        string? sourceLabel = null,
+        EModelCapability? requiredCapability = null)
     {
         AllModels.Clear();
         FilteredModels.Clear();
@@ -112,6 +113,20 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 
         _initialSelectionId = initialSelectionId;
         _sourceLabel = sourceLabel ?? string.Empty;
+
+        // Set the capability selector to the caller's default; the filter is not enforced
+        // until Feature 17 populates AIModel.Capabilities (see UpdateCapabilityFilterAvailability).
+        if (requiredCapability.HasValue)
+        {
+            CapabilityFilter.SelectedIndex = requiredCapability.Value switch
+            {
+                EModelCapability.TextGeneration => 1,
+                EModelCapability.Embedding => 2,
+                EModelCapability.Decision => 3,
+                _ => 0
+            };
+        }
+
         UpdateModelCount();
     }
 
@@ -272,19 +287,8 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
             _capabilityFilterFlag = content switch
                 {
                     "All" => null,
-                    "Text Generation" => EModelCapability.TextGeneration,
-                    "Structured Output" => EModelCapability.StructuredOutput,
-                    "Tool Calling" => EModelCapability.ToolCalling,
+                    "Chat" => EModelCapability.TextGeneration,
                     "Embedding" => EModelCapability.Embedding,
-                    "Reranker" => EModelCapability.Reranker,
-                    "Image Recognition" => EModelCapability.ImageRecognition,
-                    "Image Generation" => EModelCapability.ImageGeneration,
-                    "Audio Recognition" => EModelCapability.AudioRecognition,
-                    "Text to Speech" => EModelCapability.TextToSpeech,
-                    "Audio Generation" => EModelCapability.AudioGeneration,
-                    "Video Transcription" => EModelCapability.VideoTranscription,
-                    "Video Recognition" => EModelCapability.VideoRecognition,
-                    "Video Generation" => EModelCapability.VideoGeneration,
                     "Decision" => EModelCapability.Decision,
                     _ => null
                 };

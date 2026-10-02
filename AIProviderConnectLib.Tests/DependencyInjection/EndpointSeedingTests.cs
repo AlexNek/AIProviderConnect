@@ -341,4 +341,112 @@ public class EndpointSeedingTests
         // Assert
         options.ChatEndpoint.Should().Be("case/chat");
     }
+
+    [Fact]
+    public void ModelsEntryWithAdditionalQueryParameter_AppendsToModelsEndpoint()
+    {
+        // Arrange
+        var definition = Definition(d => d with
+        {
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["models"] = new EndpointDefinition
+                {
+                    Path = "models",
+                    AdditionalQueryParameter = "output_modalities=all"
+                }
+            }
+        });
+
+        // Act
+        var options = ResolveOptions<OpenAICompatibleProviderOptions>(definition);
+
+        // Assert
+        options.ModelsEndpoint.Should().Be("models?output_modalities=all");
+    }
+
+    [Fact]
+    public void ModelsEntryWithoutAdditionalQueryParameter_LeavesModelsEndpointUnchanged()
+    {
+        // Arrange
+        var definition = Definition(d => d with
+        {
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["models"] = new EndpointDefinition { Path = "models" }
+            }
+        });
+
+        // Act
+        var options = ResolveOptions<OpenAICompatibleProviderOptions>(definition);
+
+        // Assert
+        options.ModelsEndpoint.Should().Be("models");
+    }
+
+    [Fact]
+    public void MessagesApiModelsWithAdditionalQueryParameter_AppendsToModelsEndpoint()
+    {
+        // Arrange
+        var definition = new ProviderDefinition
+        {
+            Id = ProviderId,
+            DisplayName = "Seed Test",
+            Protocol = EProviderProtocol.MessagesApi,
+            BaseUrl = "https://test.example.com/",
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["models"] = new EndpointDefinition
+                {
+                    Path = "models",
+                    AdditionalQueryParameter = "output_modalities=all"
+                }
+            }
+        };
+        var services = new ServiceCollection();
+        services.AddSingleton(new HttpClient());
+        services.AddAiProviders(new[] { definition });
+        using var provider = services.BuildServiceProvider();
+
+        // Act
+        var options = provider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<MessagesApiOptions>>()
+            .Get(ProviderId);
+
+        // Assert
+        options.ModelsEndpoint.Should().Be("models?output_modalities=all");
+    }
+
+    [Fact]
+    public void KeyQueryModelsWithAdditionalQueryParameter_AppendsToModelsEndpoint()
+    {
+        // Arrange
+        var definition = new ProviderDefinition
+        {
+            Id = ProviderId,
+            DisplayName = "Seed Test",
+            Protocol = EProviderProtocol.KeyQuery,
+            BaseUrl = "https://test.example.com/",
+            Endpoints = new Dictionary<string, EndpointDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["models"] = new EndpointDefinition
+                {
+                    Path = "models",
+                    AdditionalQueryParameter = "output_modalities=all"
+                }
+            }
+        };
+        var services = new ServiceCollection();
+        services.AddSingleton(new HttpClient());
+        services.AddAiProviders(new[] { definition });
+        using var provider = services.BuildServiceProvider();
+
+        // Act
+        var options = provider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<KeyQueryOptions>>()
+            .Get(ProviderId);
+
+        // Assert
+        options.ModelsEndpoint.Should().Be("models?output_modalities=all");
+    }
 }

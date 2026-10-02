@@ -96,19 +96,8 @@
                       Margin="0,0,0,0" SelectedIndex="0"
                       SelectionChanged="OnCapabilitySelectionChanged">
                 <ComboBoxItem Content="All" />
-                <ComboBoxItem Content="Text Generation" />
-                <ComboBoxItem Content="Structured Output" />
-                <ComboBoxItem Content="Tool Calling" />
+                <ComboBoxItem Content="Chat" />
                 <ComboBoxItem Content="Embedding" />
-                <ComboBoxItem Content="Reranker" />
-                <ComboBoxItem Content="Image Recognition" />
-                <ComboBoxItem Content="Image Generation" />
-                <ComboBoxItem Content="Audio Recognition" />
-                <ComboBoxItem Content="Text to Speech" />
-                <ComboBoxItem Content="Audio Generation" />
-                <ComboBoxItem Content="Video Transcription" />
-                <ComboBoxItem Content="Video Recognition" />
-                <ComboBoxItem Content="Video Generation" />
                 <ComboBoxItem Content="Decision" />
             </ComboBox>
             <!-- Shown when capability data is missing or partial; see UpdateCapabilityFilterAvailability. -->
