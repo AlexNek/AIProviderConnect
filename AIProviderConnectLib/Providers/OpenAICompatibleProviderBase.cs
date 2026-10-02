@@ -2,7 +2,6 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 using AIProviderConnect.Abstractions;
-using AIProviderConnect.Constants;
 using AIProviderConnect.Exceptions;
 using AIProviderConnect.Models;
 using AIProviderConnect.Options;
@@ -68,10 +67,11 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
     protected virtual void ConfigureHeaders(HttpRequestMessage request) =>
         ConfigureHeaders(request, Options.ApiKey);
 
-    private Action<HttpRequestMessage> BuildHeaderConfigurator(RequestCredentials? credentials) =>
-        !string.IsNullOrWhiteSpace(credentials?.ApiKey)
-            ? request => ConfigureHeaders(request, EffectiveApiKey(Options, credentials))
-            : ConfigureHeaders;
+    protected Action<HttpRequestMessage> BuildHeaderConfigurator(RequestCredentials? credentials) =>
+        ComposeCredentialHeaderConfigurator(
+            credentials,
+            ConfigureHeaders,
+            request => ConfigureHeaders(request, EffectiveApiKey(Options, credentials)));
 
     protected virtual IReadOnlyList<AIModel> ParseModels(JsonElement json) =>
         OpenAICompatibleWireProtocol.ParseModels(json, Id);
@@ -81,7 +81,7 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
     {
         var credentials = await ResolveCredentialsAsync(cancellationToken);
         EnsureProviderEnabled(credentials);
-        var requestWithModel = request with { Model = ResolveChatModel(request, credentials) };
+        var requestWithModel = request with { Model = ResolveEffectiveModelOrThrow(request.Model, credentials) };
         return await SendChatAndParseAsync(
             HttpMethod.Post, ChatEndpoint,
             OpenAICompatibleWireProtocol.MapRequest(requestWithModel, stream: false),
@@ -109,7 +109,7 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
     {
         var credentials = await ResolveCredentialsAsync(cancellationToken);
         EnsureProviderEnabled(credentials);
-        var requestWithModel = request with { Model = ResolveChatModel(request, credentials) };
+        var requestWithModel = request with { Model = ResolveEffectiveModelOrThrow(request.Model, credentials) };
         var apiKey = EffectiveApiKey(Options, credentials);
         using var httpRequest = BuildRequest(
             Options, EffectiveBaseUrl(Options, credentials), apiKey, HttpMethod.Post, ChatEndpoint,
@@ -155,18 +155,6 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
 
         ValidateEmbeddingResponse(request, response);
         return response;
-    }
-
-    // Effective chat model: override → request → DefaultModel, materialized as a copy of the request
-    // before the wire mapper runs. Empty resolution is a configuration error naming the provider.
-    private string ResolveChatModel(ChatCompletionRequest request, RequestCredentials? credentials)
-    {
-        var effectiveModel = ResolveEffectiveModel(request.Model, credentials, Options);
-        if (string.IsNullOrWhiteSpace(effectiveModel))
-            throw new AiException(
-                AiErrorCodes.InvalidRequest,
-                $"Provider '{Id}' has no model to use for the request. Supply a model in the request, via credentials, or configure a default model.");
-        return effectiveModel;
     }
 
     private void ValidateEmbeddingRequest(EmbeddingRequest request)
@@ -230,31 +218,8 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
     }
 
     // The embeddings surface may live on a different root than the provider BaseUrl (the
-    // endpoints["embeddings"].baseUrl override). When the override is absent the effective
-    // base URL (per-request or configured) is used. The resolved URL must be absolute before
-    // the request is built; when an API key is present it must also use HTTPS to protect
-    // credentials in transit.
-    private string ResolveEmbeddingsBaseUrl(RequestCredentials? credentials)
-    {
-        var resolvedUrl = !string.IsNullOrWhiteSpace(_embeddingsBaseUrl)
-            ? _embeddingsBaseUrl!
-            : EffectiveBaseUrl(Options, credentials);
-
-        if (string.IsNullOrWhiteSpace(resolvedUrl))
-            throw new AiException(AiErrorCodes.NoBaseUrl, $"Provider '{Id}' is missing an embeddings base URL.");
-
-        if (!Uri.TryCreate(resolvedUrl, UriKind.Absolute, out var uri))
-            throw new AiException(AiErrorCodes.InvalidRequest,
-                $"Provider '{Id}': embeddings base URL '{resolvedUrl}' is not a valid absolute URL.");
-
-        var effectiveApiKey = EffectiveApiKey(Options, credentials);
-        if (!string.IsNullOrWhiteSpace(effectiveApiKey)
-            && !uri.Scheme.Equals(UriSchemes.Https, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new AiException(AiErrorCodes.InvalidRequest,
-                $"Provider '{Id}': embeddings base URL must use HTTPS when an API key is present.");
-        }
-
-        return resolvedUrl;
-    }
+    // endpoints["embeddings"].baseUrl override); resolution, precedence, and safety validation are
+    // shared with the other surfaces via ResolveSurfaceBaseUrl.
+    private string ResolveEmbeddingsBaseUrl(RequestCredentials? credentials) =>
+        ResolveSurfaceBaseUrl(_embeddingsBaseUrl, "embeddings", credentials);
 }

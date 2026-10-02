@@ -20,6 +20,7 @@ that is mirrored as source but never installed with the package, belong in
 
 ### Fixed
 - Documentation and IntelliSense no longer conflate capabilities with modalities: `EModelCapability` is described as *what a model may be asked to do*, distinct from `AIModel.Modality` (*which data types flow in and out*), with the rule that a modality never implies a capability. Both now state that model discovery reports no capability flags — `None` means nothing was said, not that the model cannot do it — and that consumers declare the flags they rely on through `ModelOverride.Capabilities`, replacing a published `HasFlag(EModelCapability.ToolCalling)` example that returned `false` for every discovered model without any warning. `Decision` is now listed with the other capability members
+- A call whose effective base URL is not a valid absolute URL — a typo, or a per-request/options override that omits the scheme — now fails with `AiException` (`ai/invalid-request`) before the request is sent instead of leaking a raw `UriFormatException` from request construction, upholding the contract that every provider failure surfaces as an `AiException` across chat, model discovery, streaming, and embeddings; well-formed absolute URLs are unaffected
 
 ## [1.1.0] - 2026-09-28
 

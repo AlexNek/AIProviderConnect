@@ -375,4 +375,81 @@ public class AIProviderBaseTests
         var exception = (await act.Should().ThrowAsync<AiException>()).Which;
         exception.Code.Should().Be(AiErrorCodes.NoConnection);
     }
+
+    [Fact]
+    public async Task ChatAsync_NonAbsoluteBaseUrl_ThrowsInvalidRequestInsteadOfRawUriFormat()
+    {
+        // Arrange — a scheme-less base URL must fail the shared base-URL safety gate with a
+        // structured AiException rather than leaking a raw UriFormatException from BuildRequest
+        using var handler = new CapturingHttpMessageHandler("{}");
+        var provider = new OpenAICompatibleProvider(
+            new HttpClient(handler),
+            new OpenAICompatibleProviderOptions
+            {
+                BaseUrl = "relative.example.com/v1",
+                ApiKey = "fake-api-key",
+                Enabled = true
+            },
+            new ProviderCatalog([
+                new ProviderDefinition
+                {
+                    Id = "test-provider", DisplayName = "Test provider",
+                    BaseUrl = "https://test.example.com/v1", Protocol = EProviderProtocol.OpenAICompatible
+                }
+            ]),
+            "test-provider");
+
+        // Act
+        Func<Task> act = () => provider.ChatAsync(SampleRequest());
+
+        // Assert
+        var ex = (await act.Should().ThrowAsync<AiException>()).Which;
+        ex.Code.Should().Be(AiErrorCodes.InvalidRequest);
+        ex.Message.Should().Contain("is not a valid absolute URL");
+    }
+
+    [Fact]
+    public void ResolveSurfaceBaseUrl_PreservesSurfaceArticleAndSubjectInMessages()
+    {
+        // Arrange — base URL left empty so the surface resolver itself raises the NoBaseUrl error
+        // (the reachable absolute/HTTPS wording is covered by the chat and decisions tests above)
+        using var handler = new CapturingHttpMessageHandler("{}");
+        var provider = new OpenAICompatibleProvider(
+            new HttpClient(handler),
+            new OpenAICompatibleProviderOptions
+            {
+                BaseUrl = string.Empty,
+                ApiKey = "fake-api-key",
+                Enabled = true
+            },
+            new ProviderCatalog([
+                new ProviderDefinition
+                {
+                    Id = "test-provider", DisplayName = "Test provider",
+                    BaseUrl = "https://test.example.com/v1", Protocol = EProviderProtocol.OpenAICompatible
+                }
+            ]),
+            "test-provider");
+        var resolve = typeof(AIProviderBase).GetMethod(
+            "ResolveSurfaceBaseUrl", BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        // Act
+        AiException MissingFor(string label)
+        {
+            try
+            {
+                resolve.Invoke(provider, new object?[] { null, label, null });
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException is AiException ai)
+            {
+                return ai;
+            }
+
+            throw new InvalidOperationException("Expected ResolveSurfaceBaseUrl to throw AiException");
+        }
+
+        // Assert — the consolidated helper reproduces the exact pre-refactor wording per surface
+        MissingFor("embeddings").Message.Should().Be("Provider 'test-provider' is missing an embeddings base URL.");
+        MissingFor("decisions").Message.Should().Be("Provider 'test-provider' is missing a decisions base URL.");
+    }
 }

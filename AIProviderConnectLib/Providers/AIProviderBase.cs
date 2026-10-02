@@ -203,13 +203,7 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
         if (RequiresApiKey && string.IsNullOrWhiteSpace(effectiveApiKey))
             throw new AiException(AiErrorCodes.NoApiKey, $"Provider '{Id}' is missing an API key.");
 
-        if (!string.IsNullOrWhiteSpace(effectiveApiKey)
-            && Uri.TryCreate(effectiveBaseUrl, UriKind.Absolute, out var uri)
-            && !uri.Scheme.Equals(UriSchemes.Https, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new AiException(AiErrorCodes.InvalidRequest,
-                $"Provider '{Id}': base URL must use HTTPS when an API key is present.");
-        }
+        EnsureAbsoluteAndHttps(effectiveBaseUrl, effectiveApiKey, surfaceLabel: null);
     }
 
     /// <summary>
@@ -281,6 +275,88 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
             return requestModel;
         return options.DefaultModel;
     }
+
+    /// <summary>
+    /// Validates a resolved request base URL before it is used to build a request. A
+    /// <paramref name="resolvedUrl"/> must parse as an absolute URI; when an API key is present it
+    /// must also use HTTPS so credentials are never sent in the clear. <paramref name="surfaceLabel"/>
+    /// ("embeddings", "decisions", or <c>null</c> for the common base URL) only personalizes the
+    /// message. This is the single place the library enforces the base-URL safety contract, closing
+    /// the gap where a non-absolute URL previously escaped as a raw <c>UriFormatException</c> from
+    /// request construction.
+    /// </summary>
+    protected void EnsureAbsoluteAndHttps(string resolvedUrl, string effectiveApiKey, string? surfaceLabel)
+    {
+        var subject = string.IsNullOrEmpty(surfaceLabel) ? "base URL" : $"{surfaceLabel} base URL";
+
+        if (!Uri.TryCreate(resolvedUrl, UriKind.Absolute, out var uri))
+            throw new AiException(AiErrorCodes.InvalidRequest,
+                $"Provider '{Id}': {subject} '{resolvedUrl}' is not a valid absolute URL.");
+
+        if (!string.IsNullOrWhiteSpace(effectiveApiKey)
+            && !uri.Scheme.Equals(UriSchemes.Https, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new AiException(AiErrorCodes.InvalidRequest,
+                $"Provider '{Id}': {subject} must use HTTPS when an API key is present.");
+        }
+    }
+
+    /// <summary>
+    /// Resolves the base URL for a request surface that may carry a full-URL override
+    /// (<c>endpoints["&lt;surface&gt;"].baseUrl</c>). The override wins over the effective base URL
+    /// (per-request credentials, then configured options); an empty result is a
+    /// <see cref="AiErrorCodes.NoBaseUrl"/> error naming the surface, and a non-empty result is then
+    /// validated by <see cref="EnsureAbsoluteAndHttps"/>.
+    /// </summary>
+    protected string ResolveSurfaceBaseUrl(
+        string? surfaceBaseUrlOverride,
+        string surfaceLabel,
+        RequestCredentials? credentials)
+    {
+        var resolvedUrl = !string.IsNullOrWhiteSpace(surfaceBaseUrlOverride)
+            ? surfaceBaseUrlOverride!
+            : EffectiveBaseUrl(Options, credentials);
+
+        if (string.IsNullOrWhiteSpace(resolvedUrl))
+            throw new AiException(
+                AiErrorCodes.NoBaseUrl,
+                $"Provider '{Id}' is missing {IndefiniteArticle(surfaceLabel)} {surfaceLabel} base URL.");
+
+        EnsureAbsoluteAndHttps(resolvedUrl, EffectiveApiKey(Options, credentials), surfaceLabel);
+        return resolvedUrl;
+    }
+
+    // Chooses "an" before a vowel-initial surface name ("an embeddings base URL") and "a" otherwise
+    // ("a decisions base URL"), so the consolidated message matches the pre-refactor text exactly.
+    private static string IndefiniteArticle(string label) =>
+        !string.IsNullOrEmpty(label) && "aeiouAEIOU".Contains(label[0]) ? "an" : "a";
+
+    /// <summary>
+    /// Resolves the effective model and, when nothing is configured anywhere, throws the
+    /// <see cref="AiErrorCodes.InvalidRequest"/> configuration error naming the provider. Centralizes
+    /// the guard that was previously repeated at every chat and decisions call site.
+    /// </summary>
+    protected string ResolveEffectiveModelOrThrow(string requestModel, RequestCredentials? credentials)
+    {
+        var effectiveModel = ResolveEffectiveModel(requestModel, credentials, Options);
+        if (string.IsNullOrWhiteSpace(effectiveModel))
+            throw new AiException(
+                AiErrorCodes.InvalidRequest,
+                $"Provider '{Id}' has no model to use for the request. Supply a model in the request, via credentials, or configure a default model.");
+        return effectiveModel;
+    }
+
+    /// <summary>
+    /// Returns the header configurator that carries a per-request key when one is supplied, otherwise
+    /// the configured default. The two header delegates come from the concrete provider so the
+    /// credential-conditional selection is written once while the protocol-specific header setter stays
+    /// local to each provider.
+    /// </summary>
+    protected static Action<HttpRequestMessage> ComposeCredentialHeaderConfigurator(
+        RequestCredentials? credentials,
+        Action<HttpRequestMessage> applyDefault,
+        Action<HttpRequestMessage> applyWithEffectiveKey) =>
+        !string.IsNullOrWhiteSpace(credentials?.ApiKey) ? applyWithEffectiveKey : applyDefault;
 
     private static bool IsAllUnset(RequestCredentials? credentials) =>
         credentials is null

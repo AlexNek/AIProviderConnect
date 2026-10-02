@@ -2,7 +2,6 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 using AIProviderConnect.Abstractions;
-using AIProviderConnect.Exceptions;
 using AIProviderConnect.Models;
 using AIProviderConnect.Options;
 using AIProviderConnect.Protocols;
@@ -45,7 +44,7 @@ public sealed class KeyQueryProvider : AIProviderBase, IStreamingChatProvider
         EnsureProviderEnabled(credentials);
         // Copy with the effective model BEFORE the {model} endpoint template is interpolated and before
         // the model is handed to the parser, so the URL, the body, and the parser name the same model.
-        var requestWithModel = request with { Model = ResolveChatModel(request, credentials) };
+        var requestWithModel = request with { Model = ResolveEffectiveModelOrThrow(request.Model, credentials) };
         var endpoint =
             _options.ChatEndpoint.Replace("{model}", Uri.EscapeDataString(requestWithModel.Model));
         return await SendChatAndParseAsync(
@@ -75,7 +74,7 @@ public sealed class KeyQueryProvider : AIProviderBase, IStreamingChatProvider
     {
         var credentials = await ResolveCredentialsAsync(cancellationToken);
         EnsureProviderEnabled(credentials);
-        var requestWithModel = request with { Model = ResolveChatModel(request, credentials) };
+        var requestWithModel = request with { Model = ResolveEffectiveModelOrThrow(request.Model, credentials) };
         var apiKey = EffectiveApiKey(Options, credentials);
 
         var endpoint =
@@ -110,20 +109,8 @@ public sealed class KeyQueryProvider : AIProviderBase, IStreamingChatProvider
         => SetApiKeyHeader(request, _options);
 
     private Action<HttpRequestMessage> BuildHeaderConfigurator(RequestCredentials? credentials) =>
-        !string.IsNullOrWhiteSpace(credentials?.ApiKey)
-            ? request => SetApiKeyHeader(request, _options, EffectiveApiKey(Options, credentials))
-            : ConfigureHeaders;
-
-    // Effective chat model: override → request → DefaultModel, materialized as a copy of the request
-    // before the endpoint template and payload mapping consume it. Empty resolution is a configuration
-    // error naming the provider.
-    private string ResolveChatModel(ChatCompletionRequest request, RequestCredentials? credentials)
-    {
-        var effectiveModel = ResolveEffectiveModel(request.Model, credentials, Options);
-        if (string.IsNullOrWhiteSpace(effectiveModel))
-            throw new AiException(
-                AiErrorCodes.InvalidRequest,
-                $"Provider '{Id}' has no model to use for the request. Supply a model in the request, via credentials, or configure a default model.");
-        return effectiveModel;
-    }
+        ComposeCredentialHeaderConfigurator(
+            credentials,
+            ConfigureHeaders,
+            request => SetApiKeyHeader(request, _options, EffectiveApiKey(Options, credentials)));
 }

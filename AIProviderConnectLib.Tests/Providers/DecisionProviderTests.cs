@@ -165,6 +165,39 @@ public class DecisionProviderTests
             .Should().Be("https://decisions.example.com/alpha/decisions");
     }
 
+    [Fact]
+    public async Task DecideAsync_NonAbsoluteDecisionsBaseUrl_ThrowsInvalidRequest()
+    {
+        // Arrange — a scheme-less override must surface as a clean AiException before the
+        // request is built, not leak a raw UriFormatException
+        using var handler = new CapturingHttpMessageHandler(DecisionResponseJson);
+        var provider = CreateProvider(handler, decisionsBaseUrl: "decisions.example.com/");
+
+        // Act
+        var act = () => provider.DecideAsync(Request());
+
+        // Assert
+        var ex = (await act.Should().ThrowAsync<AiException>()).Which;
+        ex.Code.Should().Be(AiErrorCodes.InvalidRequest);
+        ex.Message.Should().Contain("is not a valid absolute URL");
+    }
+
+    [Fact]
+    public async Task DecideAsync_NonHttpsDecisionsBaseUrlWithApiKey_ThrowsInvalidRequest()
+    {
+        // Arrange — an API key must never travel to a non-HTTPS decisions surface
+        using var handler = new CapturingHttpMessageHandler(DecisionResponseJson);
+        var provider = CreateProvider(handler, decisionsBaseUrl: "http://insecure.example.com/");
+
+        // Act
+        var act = () => provider.DecideAsync(Request());
+
+        // Assert
+        var ex = (await act.Should().ThrowAsync<AiException>()).Which;
+        ex.Code.Should().Be(AiErrorCodes.InvalidRequest);
+        ex.Message.Should().Contain("decisions base URL must use HTTPS");
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.BadRequest, AiErrorCodes.InvalidRequest)]
     [InlineData(HttpStatusCode.Unauthorized, AiErrorCodes.Unauthorized)]
