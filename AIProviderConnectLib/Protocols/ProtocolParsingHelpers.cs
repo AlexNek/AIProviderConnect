@@ -17,6 +17,20 @@ internal static class ProtocolParsingHelpers
     internal const string ApiKeyHeaderNameKey = "apiKeyHeaderName";
 
     /// <summary>
+    /// The protocol-configuration key whose value is a dotted path to the capabilities field
+    /// in each model entry of the provider's /models response.
+    /// </summary>
+    internal const string CapabilitiesPathKey = "capabilitiesPath";
+
+    /// <summary>
+    /// The protocol-configuration key whose value describes how capabilities are encoded:
+    /// "array" for a JSON array of capability-name strings,
+    /// "flags-string" for a comma-separated string of capability names.
+    /// Defaults to "array" when absent.
+    /// </summary>
+    internal const string CapabilitiesFormatKey = "capabilitiesFormat";
+
+    /// <summary>
     /// Reads a string property from a <see cref="JsonElement"/>, returning
     /// <see cref="string.Empty"/> when the property is absent or null.
     /// </summary>
@@ -104,5 +118,109 @@ internal static class ProtocolParsingHelpers
             .Select(mapper)
             .Where(x => !string.IsNullOrWhiteSpace(x.Id))
             .ToList();
+    }
+
+    /// <summary>
+    /// Parses capability flags from a model JSON element using a configurable path and format.
+    /// Returns <see langword="null"/> when no path is configured, the path does not exist,
+    /// or the format is unknown — never throws.
+    /// </summary>
+    /// <param name="model">The per-model JSON element from the provider's /models response.</param>
+    /// <param name="protocolConfiguration">
+    /// Provider configuration dictionary; must contain <see cref="CapabilitiesPathKey"/>
+    /// for this method to attempt parsing.
+    /// </param>
+    /// <returns>
+    /// Parsed capability flags, or <see langword="null"/> if unconfigured or unparseable.
+    /// </returns>
+    internal static EModelCapability? ParseCapabilities(
+        JsonElement model,
+        IReadOnlyDictionary<string, string>? protocolConfiguration)
+    {
+        if (protocolConfiguration is null
+            || !protocolConfiguration.TryGetValue(CapabilitiesPathKey, out var path)
+            || string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        // Navigate the dotted path within the model element.
+        var current = model;
+        foreach (var segment in path.Split('.'))
+        {
+            if (!current.TryGetProperty(segment, out var next))
+                return null;
+            current = next;
+        }
+
+        // Determine format: defaults to "array" when not specified.
+        var format = "array";
+        if (protocolConfiguration.TryGetValue(CapabilitiesFormatKey, out var fmt)
+            && !string.IsNullOrWhiteSpace(fmt))
+        {
+            format = fmt.Trim().ToLowerInvariant();
+        }
+
+        return format switch
+        {
+            "array" => ParseCapabilitiesFromArray(current),
+            "flags-string" => ParseCapabilitiesFromFlagsString(current),
+            _ => null // Unknown format — treat as unreported
+        };
+    }
+
+    private static EModelCapability? ParseCapabilitiesFromArray(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Array)
+            return null;
+
+        var result = EModelCapability.None;
+        foreach (var item in element.EnumerateArray())
+        {
+            var name = item.GetString();
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
+            if (TryParseCapabilityName(name.Trim(), out var flag))
+                result |= flag;
+        }
+
+        return result;
+    }
+
+    private static EModelCapability? ParseCapabilitiesFromFlagsString(JsonElement element)
+    {
+        var text = element.GetString();
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var result = EModelCapability.None;
+        foreach (var part in text.Split(','))
+        {
+            var name = part.Trim();
+            if (string.IsNullOrEmpty(name))
+                continue;
+            if (TryParseCapabilityName(name, out var flag))
+                result |= flag;
+        }
+
+        return result;
+    }
+
+    private static bool TryParseCapabilityName(string name, out EModelCapability flag)
+    {
+        // Match against known enum member names (case-insensitive).
+        foreach (var value in Enum.GetValues<EModelCapability>())
+        {
+            if (value == EModelCapability.None)
+                continue;
+            if (string.Equals(value.ToString(), name, StringComparison.OrdinalIgnoreCase))
+            {
+                flag = value;
+                return true;
+            }
+        }
+
+        flag = EModelCapability.None;
+        return false;
     }
 }

@@ -40,6 +40,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     private DecisionTreeViewerViewModel? _cachedDecisionTreeViewer;
 
+    private ModelTestPanelViewModel? _cachedModelTest;
+
     [ObservableProperty]
     private object? _currentPanel;
 
@@ -162,6 +164,23 @@ public sealed partial class MainViewModel : ObservableObject
         else
         {
             OpenWorkPanel("Decision Tree Viewer", _cachedDecisionTreeViewer);
+        }
+    }
+
+    [RelayCommand]
+    private async Task GoToModelTestAsync()
+    {
+        Log.Information("User opened Model Test panel");
+        if (_cachedModelTest is null)
+        {
+            _cachedModelTest = _panelFactory.CreateModelTest(() => ShowDashboard());
+            OpenWorkPanel("Model Test", _cachedModelTest);
+            await _cachedModelTest.InitializeAsync();
+        }
+        else
+        {
+            OpenWorkPanel("Model Test", _cachedModelTest);
+            await _cachedModelTest.RefreshIfProviderChangedAsync();
         }
     }
 

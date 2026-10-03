@@ -63,7 +63,7 @@ public sealed class MessagesApiProvider : AIProviderBase, IStreamingChatProvider
         var credentials = await ResolveCredentialsAsync(cancellationToken);
         return await SendGetModelsAndParseAsync(
             _options.ModelsEndpoint, BuildHeaderConfigurator(credentials),
-            json => MessagesApiProtocol.ParseModels(json, Id),
+            json => MessagesApiProtocol.ParseModels(json, Id, Options.ProtocolConfiguration),
             EffectiveBaseUrl(Options, credentials),
             credentials,
             cancellationToken);

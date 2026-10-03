@@ -1,6 +1,7 @@
 using System.Net.Http;
 
 using AIProviderConnect.Abstractions;
+using AIProviderConnect.Constants;
 using AIProviderConnect.DependencyInjection;
 using AIProviderConnect.Models;
 using AIProviderConnect.Options;
@@ -123,12 +124,18 @@ public sealed class AIProviderFactory : ITransientCredentialProviderFactory
 
         return definition.Protocol switch
             {
-                EProviderProtocol.OpenAICompatible => new OpenAICompatibleProvider(
-                    http, (OpenAICompatibleProviderOptions)options, _catalog, definition.Id),
+                EProviderProtocol.OpenAICompatible => HasDecisionsEndpoint(definition)
+                    ? new OpenAICompatibleDecisionProvider(
+                        http, (OpenAICompatibleProviderOptions)options, _catalog, definition.Id)
+                    : new OpenAICompatibleProvider(
+                        http, (OpenAICompatibleProviderOptions)options, _catalog, definition.Id),
                 EProviderProtocol.MessagesApi => new MessagesApiProvider(
                     http, (MessagesApiOptions)options, _catalog, definition.Id),
-                EProviderProtocol.HybridGateway => new OpenAICompatibleProvider(
-                    http, (HybridGatewayProviderOptions)options, _catalog, definition.Id),
+                EProviderProtocol.HybridGateway => HasDecisionsEndpoint(definition)
+                    ? new OpenAICompatibleDecisionProvider(
+                        http, (HybridGatewayProviderOptions)options, _catalog, definition.Id)
+                    : new OpenAICompatibleProvider(
+                        http, (HybridGatewayProviderOptions)options, _catalog, definition.Id),
                 EProviderProtocol.KeyQuery => new KeyQueryProvider(
                     http, (KeyQueryOptions)options, _catalog, definition.Id),
                 EProviderProtocol.Catalog => new ModelCatalogProvider(
@@ -137,6 +144,9 @@ public sealed class AIProviderFactory : ITransientCredentialProviderFactory
                     http, (OpenAICompatibleProviderOptions)options, _catalog, definition.Id)
             };
     }
+
+    private static bool HasDecisionsEndpoint(ProviderDefinition definition) =>
+        EndpointOperations.Find(definition.Endpoints, EndpointOperations.Decisions) is not null;
 
     private IAIProvider CreateProvider(string providerId, string apiKey, string? baseUrlOverride = null)
     {

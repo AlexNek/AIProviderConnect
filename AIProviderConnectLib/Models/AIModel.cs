@@ -9,10 +9,14 @@ public sealed record AIModel
     /// Gets structured capability flags for this model — what it may be asked to do, not which
     /// data types it accepts or emits (that is <see cref="Modality"/>).
     /// Replaces provider-level booleans (SupportsVision, SupportsTools, SupportsStreaming).
-    /// Model discovery does not report capabilities, so <see cref="EModelCapability.None"/> means
-    /// nothing was stated; declare real values through <see cref="ModelOverride.Capabilities"/>.
+    /// <para>
+    /// <see langword="null"/> means the provider did not report capabilities for this model;
+    /// a value (including <see cref="EModelCapability.None"/>) means the provider reported
+    /// exactly those flags. Declare additional values through
+    /// <see cref="ModelOverride.Capabilities"/>.
+    /// </para>
     /// </summary>
-    public EModelCapability Capabilities { get; init; }
+    public EModelCapability? Capabilities { get; init; }
 
     /// <summary>
     /// Gets the price per million completion tokens.

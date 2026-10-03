@@ -37,5 +37,5 @@ public sealed class ModelCatalogProvider : OpenAICompatibleProviderBase
     }
 
     protected override IReadOnlyList<AIModel> ParseModels(JsonElement json) =>
-        CatalogWireProtocol.ParseModels(json, Id);
+        CatalogWireProtocol.ParseModels(json, Id, Options.ProtocolConfiguration);
 }
