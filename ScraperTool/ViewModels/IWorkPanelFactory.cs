@@ -22,5 +22,7 @@ public interface IWorkPanelFactory
 
     DecisionTreeViewerViewModel CreateDecisionTreeViewer();
 
+    ModelTestPanelViewModel CreateModelTest(Action showDashboard);
+
     SettingsViewModel CreateSettings();
 }

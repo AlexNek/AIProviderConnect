@@ -33,6 +33,10 @@ public sealed class AppSettings
 
     public string DatabasePath { get; set; } = Path.Combine(AppContext.BaseDirectory, "scraper.db");
 
+    public string DecisionModel { get; set; } = string.Empty;
+
+    public string EmbeddingModel { get; set; } = string.Empty;
+
     public string FallbackModel { get; set; } = string.Empty;
 
     public decimal? FallbackModelCompletionPrice { get; set; }
