@@ -125,6 +125,54 @@ public class ModelTestPanelViewModelTests
             "the reconciled selection is written back to settings");
     }
 
+    [Fact]
+    public async Task RefreshIfProviderChangedAsync_RetriesDiscovery_WhenInitialDiscoveryFailed()
+    {
+        // Arrange — initial discovery fails because credentials are missing.
+        // _discoveredProviderId stays null (LoadModelsCoreAsync returns early at the guard).
+        _settings.ApiKey = string.Empty;
+        var vm = CreateViewModel();
+        await vm.InitializeAsync();
+        vm.LoadedModels.Should().BeEmpty("initial discovery could not run without credentials");
+
+        // User fixes configuration in AI Setup.
+        _settings.ApiKey = "fake-api-key";
+        _modelsByProvider["p1"] = [Model("m1"), Model("m2")];
+
+        // Act — reopen the cached panel; refresh must retry discovery.
+        await vm.RefreshIfProviderChangedAsync();
+
+        // Assert
+        _discoveryCallCount.Should().Be(1,
+            "refresh must retry discovery when the initial attempt left nothing cached");
+        vm.LoadedModels.Select(m => m.Id).Should().BeEquivalentTo(new[] { "m1", "m2" },
+            "the retry populates the model list after configuration was fixed");
+    }
+
+    [Fact]
+    public async Task RefreshIfProviderChangedAsync_ClearsSelection_WhenModelLosesRequiredCapability()
+    {
+        // Arrange — p1 exposes "m1" with Embedding; user selects it.
+        _settings.EmbeddingModel = "m1";
+        _modelsByProvider["p1"] = [Model("m1", EModelCapability.Embedding)];
+        var vm = CreateViewModel();
+        await vm.InitializeAsync();
+        vm.EmbeddingModelId.Should().Be("m1", "the saved selection is restored on first load");
+
+        // Provider changes to p2, which has "m1" but only with TextGeneration — no Embedding.
+        _settings.SelectedProviderId = "p2";
+        _modelsByProvider["p2"] = [Model("m1", EModelCapability.TextGeneration)];
+
+        // Act
+        await vm.RefreshIfProviderChangedAsync();
+
+        // Assert
+        vm.EmbeddingModelId.Should().BeEmpty(
+            "a model that still exists but lost the required capability must be cleared");
+        _settings.EmbeddingModel.Should().BeEmpty(
+            "the reconciled selection is written back to settings");
+    }
+
     private ModelTestPanelViewModel CreateViewModel() =>
         new(_factoryMock.Object, _settings, showDashboard: () => { }, persist: NoPersist);
 
@@ -135,6 +183,9 @@ public class ModelTestPanelViewModelTests
     }
 
     private static AIModel Model(string id) => new() { Id = id, DisplayName = id };
+
+    private static AIModel Model(string id, EModelCapability capabilities) =>
+        new() { Id = id, DisplayName = id, Capabilities = capabilities };
 
     // Minimal provider double that is also an IModelDiscoveryProvider, so the VM's
     // `provider is IModelDiscoveryProvider` cast succeeds and returns canned models.

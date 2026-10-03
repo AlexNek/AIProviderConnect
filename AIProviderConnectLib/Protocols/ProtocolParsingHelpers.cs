@@ -148,7 +148,8 @@ internal static class ProtocolParsingHelpers
         var current = model;
         foreach (var segment in path.Split('.'))
         {
-            if (!current.TryGetProperty(segment, out var next))
+            if (current.ValueKind != JsonValueKind.Object
+                || !current.TryGetProperty(segment, out var next))
                 return null;
             current = next;
         }

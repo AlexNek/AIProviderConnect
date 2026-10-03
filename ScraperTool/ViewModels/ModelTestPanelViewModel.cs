@@ -197,15 +197,14 @@ public sealed partial class ModelTestPanelViewModel : ObservableObject
     /// </summary>
     public async Task RefreshIfProviderChangedAsync()
     {
-        // Nothing cached yet (never discovered): InitializeAsync owns the first load.
-        if (_discoveredProviderId is null)
-            return;
-
         var providerId = _settings.SelectedProviderId;
         var apiKey = _settings.ApiKey;
 
-        // Provider and key unchanged: keep the cached list, no refresh.
-        if (string.Equals(_discoveredProviderId, providerId, StringComparison.Ordinal)
+        // Discovery already succeeded and provider/key unchanged: keep the cached list.
+        // When _discoveredProviderId is null (initial discovery failed or credentials were
+        // missing), fall through so the user can retry after fixing configuration.
+        if (_discoveredProviderId is not null
+            && string.Equals(_discoveredProviderId, providerId, StringComparison.Ordinal)
             && string.Equals(_discoveredApiKey, apiKey, StringComparison.Ordinal))
             return;
 
@@ -233,8 +232,12 @@ public sealed partial class ModelTestPanelViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(selectedId))
             return;
 
-        var stillAvailable = _loadedModels?.Any(
-            m => string.Equals(m.Id, selectedId, StringComparison.OrdinalIgnoreCase)) ?? false;
+        var stillAvailable = _loadedModels?.Any(m =>
+            string.Equals(m.Id, selectedId, StringComparison.OrdinalIgnoreCase)
+            // When the provider reports capabilities, the model must carry the one
+            // this tab requires. When unreported (null), keep the selection optimistically
+            // — the test commands validate at request time.
+            && (m.Capabilities is null || m.Capabilities.Value.HasFlag(capability))) ?? false;
         if (stillAvailable)
             return;
 

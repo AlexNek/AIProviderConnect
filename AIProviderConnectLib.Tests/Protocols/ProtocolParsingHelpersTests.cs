@@ -430,4 +430,32 @@ public class ProtocolParsingHelpersTests
         // Assert
         result.Should().Be(EModelCapability.StructuredOutput);
     }
+
+    [Fact]
+    public void ParseCapabilities_ReturnsNull_WhenIntermediatePathSegmentIsScalar()
+    {
+        // Arrange — "architecture" is a string, not an object; navigating further must not throw.
+        var model = Parse("""{"id":"m1","architecture":"flat"}""");
+        var config = new Dictionary<string, string> { ["capabilitiesPath"] = "architecture.capabilities" };
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseCapabilities_ReturnsNull_WhenIntermediatePathSegmentIsNull()
+    {
+        // Arrange — "architecture" is JSON null; navigating further must not throw.
+        var model = Parse("""{"id":"m1","architecture":null}""");
+        var config = new Dictionary<string, string> { ["capabilitiesPath"] = "architecture.capabilities" };
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().BeNull();
+    }
 }
