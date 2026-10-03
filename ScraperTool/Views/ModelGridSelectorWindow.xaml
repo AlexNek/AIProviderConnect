@@ -88,8 +88,9 @@
                 <ComboBoxItem Content="🖼 image" />
                 <ComboBoxItem Content="🔊 audio" />
                 <ComboBoxItem Content="🎬 video" />
-                <ComboBoxItem Content="📄 file" />
-                <ComboBoxItem Content="💻 code" />
+                <ComboBoxItem Content="🔢 embeddings" />
+                <ComboBoxItem Content="🎯 decisions" />
+                <ComboBoxItem Content="📊 rerank" />
             </ComboBox>
             <TextBlock Text="Filter by capability" Foreground="#777" FontSize="11" Margin="0,10,0,2" />
             <ComboBox x:Name="CapabilityFilter" Width="260" HorizontalAlignment="Left"
@@ -157,14 +158,31 @@
                 </DataGridTemplateColumn>
                 <!-- Icons only: the raw provider string is not shown inline; it stays on ModalityWords
                      for the tooltip and the text filter. -->
-                <DataGridTemplateColumn Header="Modalities" SortMemberPath="ModalityWords" ClipboardContentBinding="{Binding Modalities}" Width="200" MinWidth="140">
+                <DataGridTemplateColumn Header="Modalities In" SortMemberPath="ModalityWords" ClipboardContentBinding="{Binding ModalitiesIn}" Width="100" MinWidth="70">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding ModalityWords}"
-                                       c:HighlightText.Prefix="{Binding Modalities}" />
+                                       c:HighlightText.Prefix="{Binding ModalitiesIn}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Modalities Out" SortMemberPath="ModalityWords" ClipboardContentBinding="{Binding ModalitiesOut}" Width="100" MinWidth="70">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding ModalityWords}"
+                                       c:HighlightText.Prefix="{Binding ModalitiesOut}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <!-- Capabilities is searched by the capability filter, so it must stay visible. -->
+                <DataGridTextColumn Header="Capabilities" Binding="{Binding CapabilitiesText}" Width="130">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="ToolTip" Value="{Binding CapabilitiesText}" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
                 <DataGridTextColumn Header="Context" Binding="{Binding ContextWindow}" Width="80">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
@@ -190,15 +208,6 @@
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
                 <DataGridCheckBoxColumn Header="Free" Binding="{Binding IsFree}" Width="45" />
-                <!-- Capabilities is searched by the capability filter, so it must stay visible. -->
-                <DataGridTextColumn Header="Capabilities" Binding="{Binding CapabilitiesText}" Width="130">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                            <Setter Property="ToolTip" Value="{Binding CapabilitiesText}" />
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
                 <DataGridTemplateColumn Header="Description" Width="*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
@@ -221,11 +230,10 @@
         <Border Grid.Row="3" Margin="0,8,0,0" Padding="8,6" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left" >
                 <TextBlock Text="Modalities:" FontWeight="SemiBold" Foreground="#555" Margin="0,0,10,0" />
+                <TextBlock Text="📝 text" Margin="0,0,14,0" />
                 <TextBlock Text="🖼 image" Margin="0,0,14,0" />
                 <TextBlock Text="🔊 audio" Margin="0,0,14,0" />
                 <TextBlock Text="🎬 video" Margin="0,0,14,0" />
-                <TextBlock Text="📄 file" Margin="0,0,14,0" />
-                <TextBlock Text="💻 code" Margin="0,0,14,0" />
                 <TextBlock Text="🔢 embeddings" Margin="0,0,14,0" />
                 <TextBlock Text="🎯 decisions" Margin="0,0,14,0" />
                 <TextBlock Text="📊 rerank" />

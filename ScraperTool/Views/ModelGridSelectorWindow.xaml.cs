@@ -27,6 +27,8 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 
     private EModelCapability? _capabilityFilterFlag;
 
+    private EModelCapability? _requiredCapability;
+
     public ObservableCollection<ModelSelectionItem> AllModels { get; } = [];
 
     public ObservableCollection<ModelSelectionItem> FilteredModels { get; } = [];
@@ -113,9 +115,9 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 
         _initialSelectionId = initialSelectionId;
         _sourceLabel = sourceLabel ?? string.Empty;
+        _requiredCapability = requiredCapability;
 
-        // Set the capability selector to the caller's default; the filter is not enforced
-        // until Feature 17 populates AIModel.Capabilities (see UpdateCapabilityFilterAvailability).
+        // Set the capability selector to the caller's default.
         if (requiredCapability.HasValue)
         {
             CapabilityFilter.SelectedIndex = requiredCapability.Value switch
@@ -128,6 +130,7 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         }
 
         UpdateModelCount();
+        ApplyFilter();
     }
 
     // States how many rows the grid is showing and which provider they came from, directly above the
@@ -191,17 +194,19 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
                                       ?? false);
 
             var matchesModality = string.IsNullOrWhiteSpace(_modalityFilterToken) ||
-                                  (m.Modalities?.Contains(
+                                  (m.ModalitiesIn?.Contains(
+                                       _modalityFilterToken,
+                                       StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                  (m.ModalitiesOut?.Contains(
                                        _modalityFilterToken,
                                        StringComparison.OrdinalIgnoreCase) ?? false);
 
             // A capability filter acts only on data the grid displays — if no model reports
             // capabilities, the filter is disabled and every row passes.
-            var hasAnyCapabilities = AllModels.Any(x => x.Capabilities is not null);
+            var hasAnyCapabilities = AllModels.Any(x => x.EffectiveCapabilities != EModelCapability.None);
             var matchesCapability = !_capabilityFilterFlag.HasValue
                                     || !hasAnyCapabilities
-                                    || (m.Capabilities.HasValue
-                                        && m.Capabilities.Value.HasFlag(_capabilityFilterFlag.Value));
+                                    || m.EffectiveCapabilities.HasFlag(_capabilityFilterFlag.Value);
 
             if (matchesIdentity && matchesDescription && matchesModality && matchesCapability)
                 FilteredModels.Add(m);
@@ -242,7 +247,8 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
             {
                 "Name" => row.Id,
                 "Owner" => row.OwnedBy ?? string.Empty,
-                "Modalities" => row.Modalities,
+                "Modalities In" => row.ModalitiesIn,
+                "Modalities Out" => row.ModalitiesOut,
                 "Capabilities" => row.CapabilitiesText,
                 "Context" => row.ContextWindow,
                 "Prompt, $/1M" => row.PromptPrice,
@@ -260,7 +266,7 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         if (ModelGrid.SelectedItem is not ModelSelectionItem row) return;
 
         var text =
-            $"{row.Id}\t{row.OwnedBy}\t{row.Modalities}\t{row.ContextWindow}\t{row.PromptPrice}\t{row.CompletionPrice}\t{row.Description}";
+            $"{row.Id}\t{row.OwnedBy}\t{row.ModalitiesIn}\t{row.ModalitiesOut}\t{row.CapabilitiesText}\t{row.ContextWindow}\t{row.PromptPrice}\t{row.CompletionPrice}\t{row.Description}";
         Clipboard.SetText(text);
     }
 
@@ -276,8 +282,9 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
                     "🖼 image" => "🖼",
                     "🔊 audio" => "🔊",
                     "🎬 video" => "🎬",
-                    "📄 file" => "📄",
-                    "💻 code" => "💻",
+                    "🔢 embeddings" => "🔢",
+                    "🎯 decisions" => "🎯",
+                    "📊 rerank" => "📊",
                     _ => null
                 };
             ApplyFilter();
@@ -315,9 +322,14 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 
     // Capability flags are provider-reported data. When no model reports capabilities, the
     // filter would match a column nobody can see and hide every row without an on-screen reason.
+    // When the caller explicitly requested a capability (requiredCapability), the dropdown and
+    // filter must stay on that value regardless of how many models report vs derive capabilities.
     private void UpdateCapabilityFilterAvailability()
     {
-        var reported = AllModels.Count(m => m.Capabilities is not null);
+        if (_requiredCapability.HasValue)
+            return;
+
+        var reported = AllModels.Count(m => m.EffectiveCapabilities != EModelCapability.None);
 
         if (reported == 0)
         {

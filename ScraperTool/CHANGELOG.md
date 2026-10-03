@@ -18,6 +18,8 @@ work in progress lives under `## [Unreleased]`.
 - Model picker: `LoadModels` accepts an optional `requiredCapability` parameter so the caller can name the default capability selection (e.g. `TextGeneration` for chat model picking); the selector opens on that choice instead of All. The filter is not enforced until Feature 17 populates model capabilities
 
 ### Changed
+- Model picker: the Modalities column is split into **Modalities In** and **Modalities Out**, each rendering icons only — the raw provider string (e.g. `text+image->image`) no longer appears inline; it stays on the cell tooltip and is what the text filter searches. The `text` token is included (📝). New modality tokens are recognised: `embeddings` (🔢), `decisions` (🎯), `rerank` (📊), `speech`/`transcription` (🔊, reuses the audio icon). The legend bar at the bottom of the grid lists every recognised token. The **Capabilities** column sits directly after Modalities Out and shows provider-reported flags when available, or capabilities derived from the modality string otherwise (`image` in → ImageRecognition, `image` out → ImageGeneration, etc.)
+- Model picker: the capability filter uses three-state semantics — `null` (not reported), `None` (reported as having none), or a specific value — so the filter acts only on data the provider actually returned, not on a fabricated default
 - Model picker: the capability filter dropdown now lists exactly **All, Chat, Embedding, Decision** (Chat maps to `TextGeneration`) instead of every `EModelCapability` member, matching the model-kind selector the feature design specifies
 
 ### Fixed
