@@ -4,7 +4,7 @@ namespace ScraperTool.Models;
 
 public sealed class ModelSelectionItem
 {
-    public EModelCapability Capabilities { get; set; }
+    public EModelCapability? Capabilities { get; set; }
 
     // Readable form of Capabilities; "not reported" because an unset flag means the provider
     // never told us anything, not that the model lacks the capability.
@@ -61,9 +61,9 @@ public sealed class ModelSelectionItem
                                : string.Empty,
                        IsFree = m.PromptPrice is 0 && m.CompletionPrice is 0,
                        Capabilities = m.Capabilities,
-                       CapabilitiesText = m.Capabilities == EModelCapability.None
+                       CapabilitiesText = m.Capabilities is null
                            ? "not reported"
-                           : m.Capabilities.ToString(),
+                           : m.Capabilities.Value.ToString(),
                    };
     }
 
@@ -77,34 +77,45 @@ public sealed class ModelSelectionItem
         var all = modality.Replace("->", "+").Split('+', StringSplitOptions.RemoveEmptyEntries);
 
         var icons = new List<string>();
-        bool hasText = false,
-             hasImage = false,
+        bool hasImage = false,
              hasAudio = false,
              hasVideo = false,
              hasFile = false,
-             hasCode = false;
+             hasCode = false,
+             hasEmbeddings = false,
+             hasDecisions = false,
+             hasRerank = false;
 
         foreach (var token in all)
         {
             switch (token.Trim().ToLowerInvariant())
             {
-                case "text": hasText = true; break;
+                case "text": break; // universal default — skip
                 case "image": hasImage = true; break;
                 case "audio":
-                case "sound": hasAudio = true; break;
+                case "sound":
+                case "speech":
+                case "transcription": hasAudio = true; break;
                 case "video": hasVideo = true; break;
                 case "file":
                 case "document": hasFile = true; break;
                 case "code": hasCode = true; break;
+                case "embedding":
+                case "embeddings": hasEmbeddings = true; break;
+                case "decision":
+                case "decisions": hasDecisions = true; break;
+                case "rerank": hasRerank = true; break;
             }
         }
 
-        if (hasText) icons.Add("📝");
         if (hasImage) icons.Add("🖼");
         if (hasAudio) icons.Add("🔊");
         if (hasVideo) icons.Add("🎬");
         if (hasFile) icons.Add("📄");
         if (hasCode) icons.Add("💻");
+        if (hasEmbeddings) icons.Add("🔢");
+        if (hasDecisions) icons.Add("🎯");
+        if (hasRerank) icons.Add("📊");
 
         return icons.Count > 0 ? string.Join(" ", icons) : modality;
     }

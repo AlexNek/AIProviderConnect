@@ -590,10 +590,7 @@ public sealed partial class ProviderManualEditorViewModel : SuggestionManagement
                                         || g.Last().Protocol == EndpointConfigEntry.InheritProtocolDisplay
                                 ? null
                                 : ProviderProtocolMapper.FromJson(g.Last().Protocol),
-                            AdditionalQueryParameter =
-                                string.IsNullOrWhiteSpace(g.Last().AdditionalQueryParameter)
-                                    ? null
-                                    : g.Last().AdditionalQueryParameter
+                            AdditionalQueryParameter = NullIfEmpty(g.Last().AdditionalQueryParameter)
                         },
                 StringComparer.OrdinalIgnoreCase);
 

@@ -155,15 +155,13 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <!-- The icons alone are vague about direction, so the provider's raw words follow them.
-                     These words are not searched by the text box — modality is the dropdown's job — so they
-                     carry no match highlight either. -->
+                <!-- Icons only: the raw provider string is not shown inline; it stays on ModalityWords
+                     for the tooltip and the text filter. -->
                 <DataGridTemplateColumn Header="Modalities" SortMemberPath="ModalityWords" ClipboardContentBinding="{Binding Modalities}" Width="200" MinWidth="140">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding ModalityWords}"
-                                       c:HighlightText.Prefix="{Binding Modalities}"
-                                       c:HighlightText.Source="{Binding ModalityWords}" />
+                                       c:HighlightText.Prefix="{Binding Modalities}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -223,12 +221,14 @@
         <Border Grid.Row="3" Margin="0,8,0,0" Padding="8,6" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left" >
                 <TextBlock Text="Modalities:" FontWeight="SemiBold" Foreground="#555" Margin="0,0,10,0" />
-                <TextBlock Text="📝 text" Margin="0,0,14,0" />
                 <TextBlock Text="🖼 image" Margin="0,0,14,0" />
                 <TextBlock Text="🔊 audio" Margin="0,0,14,0" />
                 <TextBlock Text="🎬 video" Margin="0,0,14,0" />
                 <TextBlock Text="📄 file" Margin="0,0,14,0" />
-                <TextBlock Text="💻 code" />
+                <TextBlock Text="💻 code" Margin="0,0,14,0" />
+                <TextBlock Text="🔢 embeddings" Margin="0,0,14,0" />
+                <TextBlock Text="🎯 decisions" Margin="0,0,14,0" />
+                <TextBlock Text="📊 rerank" />
             </StackPanel>
         </Border>
 

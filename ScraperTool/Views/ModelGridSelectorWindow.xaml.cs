@@ -195,11 +195,13 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
                                        _modalityFilterToken,
                                        StringComparison.OrdinalIgnoreCase) ?? false);
 
-            // Feature 17 populates Capabilities; until then the filter would hide every row.
-            var hasAnyCapabilities = AllModels.Any(x => x.Capabilities != EModelCapability.None);
+            // A capability filter acts only on data the grid displays — if no model reports
+            // capabilities, the filter is disabled and every row passes.
+            var hasAnyCapabilities = AllModels.Any(x => x.Capabilities is not null);
             var matchesCapability = !_capabilityFilterFlag.HasValue
                                     || !hasAnyCapabilities
-                                    || m.Capabilities.HasFlag(_capabilityFilterFlag.Value);
+                                    || (m.Capabilities.HasValue
+                                        && m.Capabilities.Value.HasFlag(_capabilityFilterFlag.Value));
 
             if (matchesIdentity && matchesDescription && matchesModality && matchesCapability)
                 FilteredModels.Add(m);
@@ -311,11 +313,11 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
         ApplyInitialSelection();
     }
 
-    // Capability flags are provider-reported data. Model discovery leaves them unset today, so the
+    // Capability flags are provider-reported data. When no model reports capabilities, the
     // filter would match a column nobody can see and hide every row without an on-screen reason.
     private void UpdateCapabilityFilterAvailability()
     {
-        var reported = AllModels.Count(m => m.Capabilities != EModelCapability.None);
+        var reported = AllModels.Count(m => m.Capabilities is not null);
 
         if (reported == 0)
         {
@@ -333,7 +335,9 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 
         if (reported < AllModels.Count)
         {
-            CapabilityHint.Text = "Only part of the list reports capabilities — rows without them are excluded.";
+            CapabilityFilter.SelectedIndex = 0;
+            _capabilityFilterFlag = null;
+            CapabilityHint.Text = "Only part of the list reports capabilities — unreported models remain selectable.";
             CapabilityHint.Visibility = Visibility.Visible;
             return;
         }
