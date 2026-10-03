@@ -180,6 +180,7 @@ public sealed partial class MainViewModel : ObservableObject
         else
         {
             OpenWorkPanel("Model Test", _cachedModelTest);
+            await _cachedModelTest.RefreshIfProviderChangedAsync();
         }
     }
 

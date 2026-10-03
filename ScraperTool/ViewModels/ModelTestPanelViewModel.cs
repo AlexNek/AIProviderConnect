@@ -28,6 +28,7 @@ public sealed partial class ModelTestPanelViewModel : ObservableObject
     private readonly ITransientCredentialProviderFactory _providerFactory;
     private readonly AppSettings _settings;
     private readonly Action _showDashboard;
+    private readonly Action _persist;
 
     // ── Model discovery ─────────────────────────────────────────────────
 
@@ -38,6 +39,11 @@ public sealed partial class ModelTestPanelViewModel : ObservableObject
     private string _providerLabel = string.Empty;
 
     private List<AIModel>? _loadedModels;
+
+    // Identity of the provider/API key whose model list is currently cached, so a reopened
+    // panel can tell whether discovery must be re-run. Null until the first successful load.
+    private string? _discoveredProviderId;
+    private string? _discoveredApiKey;
 
     public ObservableCollection<ModelSelectionItem> LoadedModels { get; } = [];
 
@@ -95,11 +101,15 @@ public sealed partial class ModelTestPanelViewModel : ObservableObject
     public ModelTestPanelViewModel(
         ITransientCredentialProviderFactory providerFactory,
         AppSettings settings,
-        Action showDashboard)
+        Action showDashboard,
+        Action? persist = null)
     {
         _providerFactory = providerFactory;
         _settings = settings;
         _showDashboard = showDashboard;
+        // Defaults to writing the real settings file; unit tests inject a no-op so that
+        // reconciling a stale selection stays hermetic (AppSettings.Save has a static path).
+        _persist = persist ?? settings.Save;
 
         ProviderLabel = _settings.SelectedProviderId ?? string.Empty;
         EmbeddingModelId = _settings.EmbeddingModel ?? string.Empty;
@@ -132,7 +142,9 @@ public sealed partial class ModelTestPanelViewModel : ObservableObject
     /// <summary>
     /// Loads models from the configured provider. Called once when the panel opens.
     /// </summary>
-    public async Task InitializeAsync()
+    public async Task InitializeAsync() => await LoadModelsCoreAsync();
+
+    private async Task LoadModelsCoreAsync()
     {
         var providerId = _settings.SelectedProviderId;
         var apiKey = _settings.ApiKey;
@@ -155,6 +167,8 @@ public sealed partial class ModelTestPanelViewModel : ObservableObject
 
             var models = await discovery.GetModelsAsync();
             _loadedModels = models.ToList();
+            _discoveredProviderId = providerId;
+            _discoveredApiKey = apiKey;
             LoadedModels.Clear();
             foreach (var m in models.OrderBy(m => m.Id))
                 LoadedModels.Add(ModelSelectionItem.FromAIModel(m));
@@ -171,6 +185,61 @@ public sealed partial class ModelTestPanelViewModel : ObservableObject
             Log.Error(ex, "Failed to load models for {Provider}", providerId);
             StatusText = $"Failed to load models: {ex.Message}";
         }
+    }
+
+    /// <summary>
+    /// Re-runs model discovery when a reopened cached panel's configured provider or API
+    /// key differs from the one the current model list was discovered with, then reconciles
+    /// the saved Embedding/Decision selections against the newly discovered models so a
+    /// model the new provider does not expose can never reach a test request. When the
+    /// provider and key are unchanged this preserves the cached-panel behavior and makes no
+    /// network call.
+    /// </summary>
+    public async Task RefreshIfProviderChangedAsync()
+    {
+        // Nothing cached yet (never discovered): InitializeAsync owns the first load.
+        if (_discoveredProviderId is null)
+            return;
+
+        var providerId = _settings.SelectedProviderId;
+        var apiKey = _settings.ApiKey;
+
+        // Provider and key unchanged: keep the cached list, no refresh.
+        if (string.Equals(_discoveredProviderId, providerId, StringComparison.Ordinal)
+            && string.Equals(_discoveredApiKey, apiKey, StringComparison.Ordinal))
+            return;
+
+        await LoadModelsCoreAsync();
+
+        // Reconcile saved selections with the newly discovered models: a selection the new
+        // provider does not expose is cleared (in-memory and persisted) before any test
+        // request can use it.
+        ReconcileSelection(
+            EModelCapability.Embedding,
+            () => EmbeddingModelId,
+            id => EmbeddingModelId = id);
+        ReconcileSelection(
+            EModelCapability.Decision,
+            () => DecisionModelId,
+            id => DecisionModelId = id);
+    }
+
+    private void ReconcileSelection(
+        EModelCapability capability,
+        Func<string> getSelectedId,
+        Action<string> setSelectedId)
+    {
+        var selectedId = getSelectedId();
+        if (string.IsNullOrWhiteSpace(selectedId))
+            return;
+
+        var stillAvailable = _loadedModels?.Any(
+            m => string.Equals(m.Id, selectedId, StringComparison.OrdinalIgnoreCase)) ?? false;
+        if (stillAvailable)
+            return;
+
+        setSelectedId(string.Empty);
+        SaveModelSelection(capability, string.Empty);
     }
 
     // ── Model selection ─────────────────────────────────────────────────
@@ -237,7 +306,7 @@ public sealed partial class ModelTestPanelViewModel : ObservableObject
                 break;
         }
 
-        try { _settings.Save(); }
+        try { _persist(); }
         catch (Exception ex) { Log.Warning(ex, "Failed to persist model selection"); }
     }
 

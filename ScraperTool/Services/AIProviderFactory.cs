@@ -1,6 +1,7 @@
 using System.Net.Http;
 
 using AIProviderConnect.Abstractions;
+using AIProviderConnect.Constants;
 using AIProviderConnect.DependencyInjection;
 using AIProviderConnect.Models;
 using AIProviderConnect.Options;
@@ -145,7 +146,7 @@ public sealed class AIProviderFactory : ITransientCredentialProviderFactory
     }
 
     private static bool HasDecisionsEndpoint(ProviderDefinition definition) =>
-        definition.Endpoints is not null && definition.Endpoints.ContainsKey("decisions");
+        EndpointOperations.Find(definition.Endpoints, EndpointOperations.Decisions) is not null;
 
     private IAIProvider CreateProvider(string providerId, string apiKey, string? baseUrlOverride = null)
     {

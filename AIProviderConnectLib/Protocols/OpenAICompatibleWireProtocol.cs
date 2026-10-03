@@ -148,7 +148,10 @@ public static class OpenAICompatibleWireProtocol
     /// <summary>
     /// Parses a list of models from an OpenAI-compatible response.
     /// </summary>
-    public static IReadOnlyList<AIModel> ParseModels(JsonElement json, string providerId = "") =>
+    public static IReadOnlyList<AIModel> ParseModels(
+        JsonElement json,
+        string providerId = "",
+        IReadOnlyDictionary<string, string>? protocolConfiguration = null) =>
         ProtocolParsingHelpers.ParseModelArray(
             json, OpenAICompatiblePropertyNames.Data, providerId,
             x => new AIModel
@@ -164,6 +167,7 @@ public static class OpenAICompatibleWireProtocol
                 ContextWindow = ResolveContextWindow(x),
                 PromptPrice = ResolvePricePerMillion(x, OpenAICompatiblePropertyNames.Prompt),
                 CompletionPrice = ResolvePricePerMillion(x, OpenAICompatiblePropertyNames.Completion),
+                Capabilities = ProtocolParsingHelpers.ParseCapabilities(x, protocolConfiguration),
                 Modality = x.TryGetProperty(OpenAICompatiblePropertyNames.Architecture, out var arch)
                              && arch.TryGetProperty(OpenAICompatiblePropertyNames.Modality, out var mod)
                                  ? mod.GetString()

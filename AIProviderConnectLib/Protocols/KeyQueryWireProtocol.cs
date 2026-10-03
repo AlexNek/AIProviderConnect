@@ -294,7 +294,10 @@ public static class KeyQueryWireProtocol
         return null;
     }
 
-    public static IReadOnlyList<AIModel> ParseModels(JsonElement json, string providerId = "") =>
+    public static IReadOnlyList<AIModel> ParseModels(
+        JsonElement json,
+        string providerId = "",
+        IReadOnlyDictionary<string, string>? protocolConfiguration = null) =>
         ProtocolParsingHelpers.ParseModelArray(
             json, KeyQueryPropertyNames.Models, providerId,
             x => new AIModel
@@ -302,6 +305,7 @@ public static class KeyQueryWireProtocol
                 Id = ProtocolParsingHelpers.SafeGetString(x, KeyQueryPropertyNames.Name)
                          .Replace("models/", string.Empty, StringComparison.Ordinal),
                 ProviderId = providerId,
+                Capabilities = ProtocolParsingHelpers.ParseCapabilities(x, protocolConfiguration),
                 DisplayName = ProtocolParsingHelpers.SafeGetString(x, KeyQueryPropertyNames.DisplayName)
             });
 }

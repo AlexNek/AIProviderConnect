@@ -61,7 +61,7 @@ public sealed class KeyQueryProvider : AIProviderBase, IStreamingChatProvider
         var credentials = await ResolveCredentialsAsync(cancellationToken);
         return await SendGetModelsAndParseAsync(
             _options.ModelsEndpoint, BuildHeaderConfigurator(credentials),
-            json => KeyQueryWireProtocol.ParseModels(json, Id),
+            json => KeyQueryWireProtocol.ParseModels(json, Id, Options.ProtocolConfiguration),
             EffectiveBaseUrl(Options, credentials),
             credentials,
             cancellationToken);

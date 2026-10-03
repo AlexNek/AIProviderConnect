@@ -74,7 +74,7 @@ public abstract class OpenAICompatibleProviderBase : AIProviderBase, IStreamingC
             request => ConfigureHeaders(request, EffectiveApiKey(Options, credentials)));
 
     protected virtual IReadOnlyList<AIModel> ParseModels(JsonElement json) =>
-        OpenAICompatibleWireProtocol.ParseModels(json, Id);
+        OpenAICompatibleWireProtocol.ParseModels(json, Id, Options.ProtocolConfiguration);
 
     public override async Task<ChatCompletionResponse> ChatAsync(
         ChatCompletionRequest request, CancellationToken cancellationToken = default)
