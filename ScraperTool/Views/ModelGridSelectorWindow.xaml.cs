@@ -100,7 +100,8 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
     public void LoadModels(
         IEnumerable<ModelSelectionItem> models,
         string? initialSelectionId = null,
-        string? sourceLabel = null)
+        string? sourceLabel = null,
+        EModelCapability? requiredCapability = null)
     {
         AllModels.Clear();
         FilteredModels.Clear();
@@ -112,6 +113,20 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
 
         _initialSelectionId = initialSelectionId;
         _sourceLabel = sourceLabel ?? string.Empty;
+
+        // Set the capability selector to the caller's default; the filter is not enforced
+        // until Feature 17 populates AIModel.Capabilities (see UpdateCapabilityFilterAvailability).
+        if (requiredCapability.HasValue)
+        {
+            CapabilityFilter.SelectedIndex = requiredCapability.Value switch
+            {
+                EModelCapability.TextGeneration => 1,
+                EModelCapability.Embedding => 2,
+                EModelCapability.Decision => 3,
+                _ => 0
+            };
+        }
+
         UpdateModelCount();
     }
 
@@ -180,8 +195,11 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
                                        _modalityFilterToken,
                                        StringComparison.OrdinalIgnoreCase) ?? false);
 
-            var matchesCapability = !_capabilityFilterFlag.HasValue ||
-                                    m.Capabilities.HasFlag(_capabilityFilterFlag.Value);
+            // Feature 17 populates Capabilities; until then the filter would hide every row.
+            var hasAnyCapabilities = AllModels.Any(x => x.Capabilities != EModelCapability.None);
+            var matchesCapability = !_capabilityFilterFlag.HasValue
+                                    || !hasAnyCapabilities
+                                    || m.Capabilities.HasFlag(_capabilityFilterFlag.Value);
 
             if (matchesIdentity && matchesDescription && matchesModality && matchesCapability)
                 FilteredModels.Add(m);
@@ -272,19 +290,8 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
             _capabilityFilterFlag = content switch
                 {
                     "All" => null,
-                    "Text Generation" => EModelCapability.TextGeneration,
-                    "Structured Output" => EModelCapability.StructuredOutput,
-                    "Tool Calling" => EModelCapability.ToolCalling,
+                    "Chat" => EModelCapability.TextGeneration,
                     "Embedding" => EModelCapability.Embedding,
-                    "Reranker" => EModelCapability.Reranker,
-                    "Image Recognition" => EModelCapability.ImageRecognition,
-                    "Image Generation" => EModelCapability.ImageGeneration,
-                    "Audio Recognition" => EModelCapability.AudioRecognition,
-                    "Text to Speech" => EModelCapability.TextToSpeech,
-                    "Audio Generation" => EModelCapability.AudioGeneration,
-                    "Video Transcription" => EModelCapability.VideoTranscription,
-                    "Video Recognition" => EModelCapability.VideoRecognition,
-                    "Video Generation" => EModelCapability.VideoGeneration,
                     "Decision" => EModelCapability.Decision,
                     _ => null
                 };
@@ -309,13 +316,24 @@ public sealed partial class ModelGridSelectorWindow : Window, INotifyPropertyCha
     private void UpdateCapabilityFilterAvailability()
     {
         var reported = AllModels.Count(m => m.Capabilities != EModelCapability.None);
-        CapabilityFilter.IsEnabled = reported > 0;
 
-        if (AllModels.Count > 0 && reported < AllModels.Count)
+        if (reported == 0)
         {
-            CapabilityHint.Text = reported == 0
-                ? "These models report no capabilities, so capability filtering is unavailable."
-                : "Only part of the list reports capabilities — rows without them are excluded.";
+            // No model in the loaded set reports capabilities — reset the selector to "All"
+            // so the user sees the full list and the dropdown is ready when capabilities arrive.
+            CapabilityFilter.SelectedIndex = 0;
+            _capabilityFilterFlag = null;
+            CapabilityFilter.IsEnabled = false;
+            CapabilityHint.Text = "These models report no capabilities, so capability filtering is unavailable.";
+            CapabilityHint.Visibility = Visibility.Visible;
+            return;
+        }
+
+        CapabilityFilter.IsEnabled = true;
+
+        if (reported < AllModels.Count)
+        {
+            CapabilityHint.Text = "Only part of the list reports capabilities — rows without them are excluded.";
             CapabilityHint.Visibility = Visibility.Visible;
             return;
         }

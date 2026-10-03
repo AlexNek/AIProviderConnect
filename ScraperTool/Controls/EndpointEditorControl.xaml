@@ -16,9 +16,11 @@
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="1.2*" />
                                 <ColumnDefinition Width="1.5*" />
-                                <ColumnDefinition Width="2*" />
-                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="1.5*" />
+                                <ColumnDefinition Width="1.5*" />
+                                <ColumnDefinition Width="1.2*" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
@@ -34,10 +36,13 @@
                             <TextBox Grid.Column="2" Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="6,4" Margin="0,0,6,0"
                                      ToolTip="Relative path resolved against the effective base URL" />
-                            <TextBox Grid.Column="3" Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox Grid.Column="3" Text="{Binding AdditionalQueryParameter, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="6,4" Margin="0,0,6,0"
+                                     ToolTip="Optional query parameter appended to the path at seeding time (e.g. output_modalities=all)" />
+                            <TextBox Grid.Column="4" Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="6,4" Margin="0,0,6,0"
                                      ToolTip="Optional base-URL override; empty means the definition's common base URL" />
-                            <ComboBox Grid.Column="4" Width="130"
+                            <ComboBox Grid.Column="5" Width="130"
                                       ItemsSource="{Binding KnownProtocols}"
                                       SelectedItem="{Binding Protocol, UpdateSourceTrigger=PropertyChanged}"
                                       Padding="6,4" Margin="0,0,6,0"
@@ -53,7 +58,7 @@
                                     </Style>
                                 </ComboBox.Style>
                             </ComboBox>
-                            <Button Grid.Column="5" Content="&#x2715;" Padding="8,4"
+                            <Button Grid.Column="7" Content="&#x2715;" Padding="8,4"
                                     Command="{Binding RemoveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                     CommandParameter="{Binding}"
                                     ToolTip="Remove this entry">

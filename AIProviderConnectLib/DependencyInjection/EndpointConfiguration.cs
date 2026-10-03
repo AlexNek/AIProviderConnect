@@ -17,9 +17,10 @@ internal static class EndpointConfiguration
     /// changes nothing, an empty <c>path</c>, a schemed <c>path</c> (a surface on another
     /// root uses the <c>baseUrl</c> override), a <c>baseUrl</c> that is not an absolute
     /// <c>https</c> URL, a <c>KeyQuery</c> <c>chat</c> value without a <c>{model}</c>
-    /// placeholder, and a <c>decision</c> override on a primary that has no class for the
-    /// combination. Each failure throws <see cref="AiException"/> with
-    /// <see cref="AiErrorCodes.ConfigurationError"/> naming the provider id and the operation.
+    /// placeholder, a <c>decision</c> override on a primary that has no class for the
+    /// combination, and a malformed <c>additionalQueryParameter</c> (starts with <c>?</c>,
+    /// or contains an unencoded <c>#</c> or space). Each failure throws <see cref="AiException"/>
+    /// with <see cref="AiErrorCodes.ConfigurationError"/> naming the provider id and the operation.
     /// </summary>
     internal static void Validate(string providerId, ProviderDefinition definition)
     {
@@ -60,7 +61,8 @@ internal static class EndpointConfiguration
                 $"Known operations: {EndpointOperations.Chat}, {EndpointOperations.Embeddings}, " +
                 $"{EndpointOperations.Messages}, {EndpointOperations.Models}, {EndpointOperations.Decisions}.");
 
-        if (entry.Path is null && entry.BaseUrl is null && entry.Protocol is null)
+        if (entry.Path is null && entry.BaseUrl is null && entry.Protocol is null
+            && entry.AdditionalQueryParameter is null)
         {
             throw new AiException(
                 AiErrorCodes.ConfigurationError,
@@ -116,6 +118,26 @@ internal static class EndpointConfiguration
                 AiErrorCodes.ConfigurationError,
                 $"Provider '{providerId}': the {definition.Protocol} primary has no class serving " +
                 "chat and decisions together; a decisions protocol override is not usable here.");
+        }
+
+        if (entry.AdditionalQueryParameter is not null)
+        {
+            if (entry.AdditionalQueryParameter.StartsWith('?'))
+            {
+                throw new AiException(
+                    AiErrorCodes.ConfigurationError,
+                    $"Provider '{providerId}': endpoints['{operation}'].additionalQueryParameter " +
+                    "must not start with '?' — the seeding step supplies the separator itself.");
+            }
+
+            if (entry.AdditionalQueryParameter.Contains('#')
+                || entry.AdditionalQueryParameter.Contains(' '))
+            {
+                throw new AiException(
+                    AiErrorCodes.ConfigurationError,
+                    $"Provider '{providerId}': endpoints['{operation}'].additionalQueryParameter " +
+                    "must not contain an unencoded '#' or space.");
+            }
         }
     }
 

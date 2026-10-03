@@ -112,6 +112,40 @@ public class ProviderManualEditorViewModelTests
     }
 
     [Fact]
+    public void Save_RowWithAdditionalQueryParameter_RoundTrips()
+    {
+        // Arrange
+        using var harness = CreateViewModel(ProviderJson);
+        var vm = harness.ViewModel;
+
+        // Act
+        var row = vm.EndpointConfiguration.First(r => r.Operation == "models");
+        row.AdditionalQueryParameter = "output_modalities=all";
+        vm.SaveCommand.Execute(null);
+
+        // Assert
+        var def = JsonSerializer.Deserialize<ProviderDefinition>(
+            File.ReadAllText(harness.ProviderFilePath), ReadOptions)!;
+        var entry = def.Endpoints!["models"]!;
+        entry.AdditionalQueryParameter.Should().Be("output_modalities=all");
+    }
+
+    [Fact]
+    public void Load_DefinitionWithAdditionalQueryParameter_PopulatesRow()
+    {
+        // Arrange
+        var json = ProviderJson.Replace(
+            "\"path\": \"alpha/decisions\",",
+            "\"path\": \"alpha/decisions\",\n\"additionalQueryParameter\": \"output_modalities=all\",");
+        using var harness = CreateViewModel(json);
+        var vm = harness.ViewModel;
+
+        // Act & Assert
+        var row = vm.EndpointConfiguration.First(r => r.Operation == "decisions");
+        row.AdditionalQueryParameter.Should().Be("output_modalities=all");
+    }
+
+    [Fact]
     public void Save_RowWithEmptyOperationOrAllFieldsEmpty_IsDropped()
     {
         // Arrange
