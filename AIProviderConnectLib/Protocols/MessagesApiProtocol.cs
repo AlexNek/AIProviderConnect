@@ -204,7 +204,10 @@ public static class MessagesApiProtocol
     /// <summary>
     /// Parses a list of models from a Messages API response.
     /// </summary>
-    public static IReadOnlyList<AIModel> ParseModels(JsonElement json, string providerId = "") =>
+    public static IReadOnlyList<AIModel> ParseModels(
+        JsonElement json,
+        string providerId = "",
+        IReadOnlyDictionary<string, string>? protocolConfiguration = null) =>
         ProtocolParsingHelpers.ParseModelArray(
             json, MessagesApiPropertyNames.Data, providerId,
             x => new AIModel
@@ -215,7 +218,8 @@ public static class MessagesApiProtocol
                 DisplayName = x.TryGetProperty(MessagesApiPropertyNames.DisplayName, out _)
                                   ? ProtocolParsingHelpers.SafeGetString(x, MessagesApiPropertyNames.DisplayName)
                                   : ProtocolParsingHelpers.SafeGetString(x, MessagesApiPropertyNames.Id),
-                ProviderId = providerId
+                ProviderId = providerId,
+                Capabilities = ProtocolParsingHelpers.ParseCapabilities(x, protocolConfiguration)
             });
 
     /// <summary>

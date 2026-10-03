@@ -123,4 +123,12 @@ public sealed class WorkPanelFactory : IWorkPanelFactory
             _sp.GetRequiredService<DecisionTreeDotExporter>(),
             _sp.GetRequiredService<IDecisionTreeLoader>());
     }
+
+    public ViewModels.ModelTestPanelViewModel CreateModelTest(Action showDashboard)
+    {
+        return new ViewModels.ModelTestPanelViewModel(
+            _sp.GetRequiredService<ITransientCredentialProviderFactory>(),
+            _sp.GetRequiredService<AppSettings>(),
+            showDashboard);
+    }
 }

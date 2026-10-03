@@ -30,6 +30,9 @@
         <DataTemplate DataType="{x:Type vm:DecisionTreeViewerViewModel}">
             <controls:DecisionTreeViewerControl />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ModelTestPanelViewModel}">
+            <controls:ModelTestPanelControl />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -84,6 +87,11 @@
                                                     TileBackground="#E8E8F0" TitleForeground="#333" DescriptionForeground="#666"
                                                     TileHeight="100"
                                                     ToolTip="View and visualize decision tree JSON files as DOT graphs" />
+                            <controls:DashboardTile Title="Model Test" Description="Test embedding &amp; decision models"
+                                                    Command="{Binding GoToModelTestCommand}"
+                                                    TileBackground="#E8E8F0" TitleForeground="#333" DescriptionForeground="#666"
+                                                    TileHeight="100"
+                                                    ToolTip="Send test requests to embedding and decision models with token and cost tracking" />
                         </WrapPanel>
 
                         <Border Background="#F5F5F5" BorderBrush="#DDD" BorderThickness="1" CornerRadius="6" Padding="12"

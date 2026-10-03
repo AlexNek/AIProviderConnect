@@ -45,7 +45,7 @@ if (provider is IModelDiscoveryProvider discovery
 | `OwnedBy` | `string?` | Organization that owns the model |
 | `Description` | `string?` | Model description, when the API provides one |
 | `ContextWindow` | `int?` | Maximum context size in tokens |
-| `Capabilities` | `EModelCapability` | What the model may be asked to do (see below) — not reported by discovery, declare it via `ModelOverride` |
+| `Capabilities` | `EModelCapability?` | What the model may be asked to do (see below). `null` = not reported by the provider; `None` = reported as having none; a value = reported flags. Declare it via `ModelOverride` when the provider does not report it |
 | `Modality` | `string?` | Input/output data types as the provider reported them, e.g. `"text+image->text"` — not a capability signal |
 | `PromptPrice` | `decimal?` | Price per million prompt tokens |
 | `CompletionPrice` | `decimal?` | Price per million completion tokens |
@@ -80,10 +80,7 @@ A modality never implies a capability. `ToolCalling`, `StructuredOutput`, `Embed
 absent — and the arrow direction cannot separate `TextToSpeech` from `AudioGeneration`,
 nor `VideoTranscription` from `VideoRecognition`. Read each field on its own terms.
 
-No provider model-discovery endpoint reports capability flags, so a discovered model
-carries `EModelCapability.None`. That is an absent statement, not a verdict that the
-model cannot do something. Declare the capabilities your application depends on through
-[consumer-supplied overrides](#consumer-supplied-overrides):
+A provider that reports capabilities in its `/models` response can be configured to populate the field through its protocol configuration (`capabilitiesPath` and `capabilitiesFormat`). A provider that reports nothing carries no such configuration, and its models arrive with `Capabilities` set to `null` — meaning unreported, not incapable. Declare the capabilities your application depends on through [consumer-supplied overrides](#consumer-supplied-overrides) when the provider does not report them:
 
 ```csharp
 services.AddAiProviders(o => o.OverrideModels("openai", new[]
@@ -96,7 +93,8 @@ services.AddAiProviders(o => o.OverrideModels("openai", new[]
 }));
 
 // After the merge the flag is reported data, and this test means what it looks like it means.
-bool supportsTools = model.Capabilities.HasFlag(EModelCapability.ToolCalling);
+bool supportsTools = model.Capabilities is not null
+    && model.Capabilities.Value.HasFlag(EModelCapability.ToolCalling);
 ```
 
 ## Discovery per Protocol

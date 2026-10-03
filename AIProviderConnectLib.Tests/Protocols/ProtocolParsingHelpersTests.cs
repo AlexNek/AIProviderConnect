@@ -269,4 +269,193 @@ public class ProtocolParsingHelpersTests
         // Assert
         result.Select(m => m.Id).Should().Equal("a", "c");
     }
+
+    [Fact]
+    public void ParseCapabilities_ReturnsNull_WhenConfigurationIsNull()
+    {
+        // Arrange
+        var model = Parse("""{"id":"m1","capabilities":["ToolCalling"]}""");
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, null);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseCapabilities_ReturnsNull_WhenCapabilitiesPathIsAbsent()
+    {
+        // Arrange
+        var model = Parse("""{"id":"m1","capabilities":["ToolCalling"]}""");
+        var config = new Dictionary<string, string>();
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseCapabilities_ReturnsNull_WhenPathSegmentIsMissing()
+    {
+        // Arrange
+        var model = Parse("""{"id":"m1"}""");
+        var config = new Dictionary<string, string> { ["capabilitiesPath"] = "capabilities" };
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseCapabilities_ParsesArrayFormat_WithKnownNames()
+    {
+        // Arrange
+        var model = Parse("""{"id":"m1","capabilities":["ToolCalling","Embedding"]}""");
+        var config = new Dictionary<string, string> { ["capabilitiesPath"] = "capabilities" };
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().Be(EModelCapability.ToolCalling | EModelCapability.Embedding);
+    }
+
+    [Fact]
+    public void ParseCapabilities_ParsesArrayFormat_CaseInsensitive()
+    {
+        // Arrange
+        var model = Parse("""{"id":"m1","capabilities":["toolcalling","EMBEDDING"]}""");
+        var config = new Dictionary<string, string> { ["capabilitiesPath"] = "capabilities" };
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().Be(EModelCapability.ToolCalling | EModelCapability.Embedding);
+    }
+
+    [Fact]
+    public void ParseCapabilities_ParsesArrayFormat_IgnoresUnknownNames()
+    {
+        // Arrange
+        var model = Parse("""{"id":"m1","capabilities":["ToolCalling","UnknownFuture"]}""");
+        var config = new Dictionary<string, string> { ["capabilitiesPath"] = "capabilities" };
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().Be(EModelCapability.ToolCalling);
+    }
+
+    [Fact]
+    public void ParseCapabilities_ReturnsNone_WhenArrayIsEmpty()
+    {
+        // Arrange
+        var model = Parse("""{"id":"m1","capabilities":[]}""");
+        var config = new Dictionary<string, string> { ["capabilitiesPath"] = "capabilities" };
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().Be(EModelCapability.None);
+    }
+
+    [Fact]
+    public void ParseCapabilities_ParsesFlagsStringFormat()
+    {
+        // Arrange
+        var model = Parse("""{"id":"m1","capabilities":"ToolCalling, Embedding"}""");
+        var config = new Dictionary<string, string>
+        {
+            ["capabilitiesPath"] = "capabilities",
+            ["capabilitiesFormat"] = "flags-string"
+        };
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().Be(EModelCapability.ToolCalling | EModelCapability.Embedding);
+    }
+
+    [Fact]
+    public void ParseCapabilities_NavigatesDottedPath()
+    {
+        // Arrange
+        var model = Parse("""{"id":"m1","architecture":{"capabilities":["Decision"]}}""");
+        var config = new Dictionary<string, string> { ["capabilitiesPath"] = "architecture.capabilities" };
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().Be(EModelCapability.Decision);
+    }
+
+    [Fact]
+    public void ParseCapabilities_ReturnsNull_WhenFormatIsUnknown()
+    {
+        // Arrange
+        var model = Parse("""{"id":"m1","capabilities":{"some":"object"}}""");
+        var config = new Dictionary<string, string>
+        {
+            ["capabilitiesPath"] = "capabilities",
+            ["capabilitiesFormat"] = "booleans"
+        };
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseCapabilities_DefaultsToArrayFormat_WhenFormatIsAbsent()
+    {
+        // Arrange
+        var model = Parse("""{"id":"m1","capabilities":["StructuredOutput"]}""");
+        var config = new Dictionary<string, string> { ["capabilitiesPath"] = "capabilities" };
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().Be(EModelCapability.StructuredOutput);
+    }
+
+    [Fact]
+    public void ParseCapabilities_ReturnsNull_WhenIntermediatePathSegmentIsScalar()
+    {
+        // Arrange — "architecture" is a string, not an object; navigating further must not throw.
+        var model = Parse("""{"id":"m1","architecture":"flat"}""");
+        var config = new Dictionary<string, string> { ["capabilitiesPath"] = "architecture.capabilities" };
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseCapabilities_ReturnsNull_WhenIntermediatePathSegmentIsNull()
+    {
+        // Arrange — "architecture" is JSON null; navigating further must not throw.
+        var model = Parse("""{"id":"m1","architecture":null}""");
+        var config = new Dictionary<string, string> { ["capabilitiesPath"] = "architecture.capabilities" };
+
+        // Act
+        var result = ProtocolParsingHelpers.ParseCapabilities(model, config);
+
+        // Assert
+        result.Should().BeNull();
+    }
 }

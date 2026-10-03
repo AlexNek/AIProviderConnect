@@ -181,4 +181,84 @@ public class ModelOverrideMergerTests
         // Assert
         result.Should().ContainSingle().Which.DisplayName.Should().Be("Reborn");
     }
+
+    [Fact]
+    public void Merge_NullCapabilitiesOnBothSides_ResultIsNull()
+    {
+        // Arrange — null means "not reported"; override null keeps it unreported.
+        var live = new List<AIModel> { Live("m1") }; // Capabilities defaults to null
+        var overrides = new List<ModelOverride> { new() { Id = "m1" } }; // Capabilities defaults to null
+
+        // Act
+        var result = ModelOverrideMerger.Merge(live, overrides, "test-provider");
+
+        // Assert
+        result.Should().ContainSingle().Which.Capabilities.Should().BeNull();
+    }
+
+    [Fact]
+    public void Merge_OverrideSetsCapabilities_WhenLiveIsNull()
+    {
+        // Arrange — live model has unreported capabilities; override fills them in.
+        var live = new List<AIModel> { Live("m1") };
+        var overrides = new List<ModelOverride>
+        {
+            new() { Id = "m1", Capabilities = EModelCapability.ToolCalling }
+        };
+
+        // Act
+        var result = ModelOverrideMerger.Merge(live, overrides, "test-provider");
+
+        // Assert
+        result.Should().ContainSingle().Which.Capabilities.Should().Be(EModelCapability.ToolCalling);
+    }
+
+    [Fact]
+    public void Merge_LiveCapabilitiesPreserved_WhenOverrideIsNull()
+    {
+        // Arrange — live model reports capabilities; override does not touch them.
+        var live = new List<AIModel>
+        {
+            new()
+            {
+                Id = "m1",
+                DisplayName = "Live",
+                ProviderId = "test-provider",
+                Capabilities = EModelCapability.Embedding
+            }
+        };
+        var overrides = new List<ModelOverride> { new() { Id = "m1" } };
+
+        // Act
+        var result = ModelOverrideMerger.Merge(live, overrides, "test-provider");
+
+        // Assert
+        result.Should().ContainSingle().Which.Capabilities.Should().Be(EModelCapability.Embedding);
+    }
+
+    [Fact]
+    public void Merge_OverrideReplacesLiveCapabilities()
+    {
+        // Arrange — both sides report capabilities; override wins.
+        var live = new List<AIModel>
+        {
+            new()
+            {
+                Id = "m1",
+                DisplayName = "Live",
+                ProviderId = "test-provider",
+                Capabilities = EModelCapability.Embedding
+            }
+        };
+        var overrides = new List<ModelOverride>
+        {
+            new() { Id = "m1", Capabilities = EModelCapability.Decision }
+        };
+
+        // Act
+        var result = ModelOverrideMerger.Merge(live, overrides, "test-provider");
+
+        // Assert
+        result.Should().ContainSingle().Which.Capabilities.Should().Be(EModelCapability.Decision);
+    }
 }

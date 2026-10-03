@@ -266,7 +266,9 @@ fields are applied. See
 `VideoTranscription`, `VideoRecognition`, `VideoGeneration`, `Decision`.
 
 It states what a model may be asked to do. `AIModel.Modality` is the separate field for
-which data types flow in and out — a modality does not imply a capability. Discovery
-reports no capabilities, so `None` on a live model means nothing was stated; supply the
-flags you rely on through `ModelOverride.Capabilities`. See
+which data types flow in and out — a modality does not imply a capability.
+`AIModel.Capabilities` is typed `EModelCapability?`: `null` means the provider did not
+report capabilities (unknown); `None` means the provider reported having none; any other
+value means the provider reported exactly those flags. Supply the flags you rely on
+through `ModelOverride.Capabilities` when the provider does not report them. See
 [Model Discovery](../model-discovery/model-discovery.md#capabilities-are-not-modalities).

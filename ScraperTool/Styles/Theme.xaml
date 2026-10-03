@@ -6,6 +6,7 @@
     <BooleanToVisibilityConverter x:Key="BoolToVis" />
     <c:InverseBoolConverter x:Key="InverseBool" />
     <c:NonEmptyVisibility x:Key="NonEmptyVis" />
+    <c:StatusTextToColorConverter x:Key="StatusTextColor" />
 
     <Style TargetType="Button">
         <Setter Property="Padding" Value="8,4" />

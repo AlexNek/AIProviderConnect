@@ -34,7 +34,10 @@ public static class CatalogWireProtocol
         }
     }
 
-    public static IReadOnlyList<AIModel> ParseModels(JsonElement json, string providerId) =>
+    public static IReadOnlyList<AIModel> ParseModels(
+        JsonElement json,
+        string providerId,
+        IReadOnlyDictionary<string, string>? protocolConfiguration = null) =>
         ProtocolParsingHelpers.ParseModelArray(
             json, rootProperty: null, providerId,
             x => new AIModel
@@ -42,6 +45,7 @@ public static class CatalogWireProtocol
                 Id = ProtocolParsingHelpers.SafeGetString(x, CatalogPropertyNames.Id),
                 ProviderId = providerId,
                 DisplayName = ProtocolParsingHelpers.SafeGetString(x, CatalogPropertyNames.Name),
+                Capabilities = ProtocolParsingHelpers.ParseCapabilities(x, protocolConfiguration),
                 OwnedBy = x.TryGetProperty(CatalogPropertyNames.Publisher, out var publisher)
                               ? publisher.GetString()
                               : null

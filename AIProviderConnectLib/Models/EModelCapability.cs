@@ -13,8 +13,11 @@ namespace AIProviderConnect.Models;
 /// arrow direction cannot separate <see cref="TextToSpeech"/> from <see cref="AudioGeneration"/>
 /// or <see cref="VideoTranscription"/> from <see cref="VideoRecognition"/>.
 /// <para>
-/// Provider model-discovery endpoints do not report capabilities, so a discovered model carries
-/// <see cref="None"/>: an absent statement, not a verdict that the model cannot do something.
+/// On <see cref="AIModel.Capabilities"/> (typed <c>EModelCapability?</c>) the three states are:
+/// <see langword="null"/> — the provider did not report capabilities (unknown);
+/// <see cref="None"/> — the provider reported having no capabilities;
+/// any other value — the provider reported exactly these flags.
+/// Absence of a bit inside a reported value means negative; <see langword="null"/> means unreported.
 /// Supply the flags an application depends on through <see cref="ModelOverride.Capabilities"/>.
 /// </para>
 /// </remarks>

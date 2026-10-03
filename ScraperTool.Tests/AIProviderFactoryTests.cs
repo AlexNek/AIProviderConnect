@@ -133,10 +133,11 @@ public class AIProviderFactoryTests
     }
 
     [Fact]
-    public async Task GetProvider_WithEndpointsBlock_StillBuildsChatProviderWithUnchangedEndpoints()
+    public async Task GetProvider_WithDecisionsEndpoint_BuildsDecisionProviderWithUnchangedChatEndpoint()
     {
-        // Arrange — rule 17: ScraperTool stays chat-only. An endpoints block (e.g. the
-        // migrated OpenRouter shape) must not change the resolved chat endpoint.
+        // Arrange — when a definition declares a decisions endpoint the factory builds the
+        // decision-capable provider, but the chat surface must be unaffected: an endpoints
+        // block (e.g. the migrated OpenRouter shape) must not change the resolved chat endpoint.
         _catalogMock.Setup(c => c.Get("openrouter")).Returns(new ProviderDefinition
         {
             Id = "openrouter",
@@ -167,7 +168,7 @@ public class AIProviderFactoryTests
         });
 
         // Assert
-        provider.Should().BeAssignableTo<AIProviderConnect.Providers.OpenAICompatibleProvider>();
+        provider.Should().BeAssignableTo<AIProviderConnect.Providers.OpenAICompatibleDecisionProvider>();
         _handler.LastRequest!.RequestUri!.AbsoluteUri.Should()
             .Be("https://openrouter.test.example.com/api/v1/chat/completions");
     }
