@@ -57,9 +57,10 @@ public class StreamingDecisionModelCatalogOverrideDecoratorTests
     }
 
     [Fact]
-    public void StreamingOnlyProvider_WithOverrides_UsesStreamingDecorator()
+    public void StreamingOnlyProvider_WithOverrides_GainsReadoutCapability()
     {
-        // Arrange — no decisions override: the existing streaming decorator serves the id
+        // Arrange — no decisions override: the base class still makes the provider decision-capable
+        // through the chat read-out, and an OpenAI-compatible inner also keeps its embeddings surface
         var services = new ServiceCollection();
         services.AddSingleton(new HttpClient());
         services.AddAiProviders(b => b
@@ -77,10 +78,14 @@ public class StreamingDecisionModelCatalogOverrideDecoratorTests
         using var provider = services.BuildServiceProvider();
         var resolved = provider.GetRequiredKeyedService<IAIProvider>("streaming-only");
 
-        // Assert
+        // Assert — capability comes from the base class, not from a catalog declaration, and the
+        // decorator still honours the embeddings dimension of the inner provider.
         resolved.Should().BeAssignableTo<IStreamingChatProvider>();
-        resolved.Should().NotBeAssignableTo<IDecisionProvider>();
-        resolved.Should().BeOfType<ModelCatalogOverrideDecorator>();
+        resolved.Should().BeAssignableTo<IDecisionProvider>();
+        ((IDecisionProvider)resolved).SupportsDecisions.Should().BeTrue();
+        ((IDecisionProvider)resolved).DecisionSource.Should().Be(EDecisionSource.Readout);
+        resolved.Should().BeAssignableTo<IEmbeddingProvider>();
+        resolved.Should().BeOfType<StreamingDecisionModelCatalogOverrideDecorator>();
     }
 
     [Fact]

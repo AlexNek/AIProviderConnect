@@ -122,6 +122,12 @@ public static class OpenAICompatibleWireProtocol
         if (request.PresencePenalty.HasValue)
             body["presence_penalty"] = request.PresencePenalty;
 
+        if (request.Logprobs.HasValue)
+            body[OpenAICompatiblePropertyNames.Logprobs] = request.Logprobs;
+
+        if (request.TopLogprobs.HasValue)
+            body[OpenAICompatiblePropertyNames.TopLogprobs] = request.TopLogprobs;
+
         return body;
     }
 
@@ -230,10 +236,12 @@ public static class OpenAICompatibleWireProtocol
         string? reasoningContent = null;
         string? finishReason = null;
         List<ToolCall>? toolCalls = null;
+        ChatContentLogprobs? logprobs = null;
 
         if (json.TryGetProperty(OpenAICompatiblePropertyNames.Choices, out var choices) && choices.GetArrayLength() > 0)
         {
             var choice = choices[0];
+            logprobs = ParseLogprobs(choice);
             if (choice.TryGetProperty(OpenAICompatiblePropertyNames.Message, out var message))
             {
                 if (message.TryGetProperty(OpenAICompatiblePropertyNames.Content, out var messageContent))
@@ -294,8 +302,70 @@ public static class OpenAICompatibleWireProtocol
                        ReasoningContent = reasoningContent,
                        FinishReason = finishReason,
                        Usage = usage,
-                       ToolCalls = toolCalls
+                       ToolCalls = toolCalls,
+                       Logprobs = logprobs
                    };
+    }
+
+    // Reads choices[0].logprobs.content. A malformed entry is skipped rather than read as a
+    // probability of one: a token with no numeric logprob cannot support a distribution.
+    private static ChatContentLogprobs? ParseLogprobs(JsonElement choice)
+    {
+        if (!choice.TryGetProperty(OpenAICompatiblePropertyNames.Logprobs, out var block)
+            || block.ValueKind != JsonValueKind.Object
+            || !block.TryGetProperty(OpenAICompatiblePropertyNames.Content, out var content)
+            || content.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var tokens = new List<ChatTokenLogprob>();
+        foreach (var item in content.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object
+                || !item.TryGetProperty(OpenAICompatiblePropertyNames.Token, out var tokenProp)
+                || tokenProp.ValueKind != JsonValueKind.String
+                || !item.TryGetProperty(OpenAICompatiblePropertyNames.Logprob, out var logprobProp)
+                || logprobProp.ValueKind != JsonValueKind.Number
+                || !logprobProp.TryGetDouble(out var logprob))
+            {
+                continue;
+            }
+
+            tokens.Add(new ChatTokenLogprob(
+                tokenProp.GetString() ?? string.Empty,
+                logprob,
+                ParseTopLogprobs(item)));
+        }
+
+        return new ChatContentLogprobs { Content = tokens };
+    }
+
+    private static IReadOnlyList<ChatTopLogprob> ParseTopLogprobs(JsonElement item)
+    {
+        if (!item.TryGetProperty(OpenAICompatiblePropertyNames.TopLogprobs, out var topsProp)
+            || topsProp.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var tops = new List<ChatTopLogprob>();
+        foreach (var top in topsProp.EnumerateArray())
+        {
+            if (top.ValueKind != JsonValueKind.Object
+                || !top.TryGetProperty(OpenAICompatiblePropertyNames.Token, out var tokenProp)
+                || tokenProp.ValueKind != JsonValueKind.String
+                || !top.TryGetProperty(OpenAICompatiblePropertyNames.Logprob, out var logprobProp)
+                || logprobProp.ValueKind != JsonValueKind.Number
+                || !logprobProp.TryGetDouble(out var logprob))
+            {
+                continue;
+            }
+
+            tops.Add(new ChatTopLogprob(tokenProp.GetString() ?? string.Empty, logprob));
+        }
+
+        return tops;
     }
 
     /// <summary>

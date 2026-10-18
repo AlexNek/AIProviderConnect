@@ -8,6 +8,8 @@ public static class KeyQueryPropertyNames
 
     public const string CandidatesTokenCount = "candidatesTokenCount";
 
+    public const string ChosenCandidates = "chosenCandidates";
+
     public const string Content = "content";
 
     public const string DisplayName = "displayName";
@@ -19,6 +21,10 @@ public static class KeyQueryPropertyNames
     public const string FunctionDeclarations = "functionDeclarations";
 
     public const string FunctionResponse = "functionResponse";
+
+    public const string LogProbability = "logProbability";
+
+    public const string LogprobsResult = "logprobsResult";
 
     public const string Models = "models";
 
@@ -37,6 +43,10 @@ public static class KeyQueryPropertyNames
     public const string Tools = "tools";
 
     public const string TotalTokenCount = "totalTokenCount";
+
+    public const string Token = "token";
+
+    public const string TopCandidates = "topCandidates";
 
     public const string UsageMetadata = "usageMetadata";
 }

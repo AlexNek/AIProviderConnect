@@ -15,6 +15,7 @@ The runtime-relevant fields:
 | `DisplayName` | `string` | Human-readable name |
 | `Protocol` | `EProviderProtocol` | Wire protocol, mapped from the JSON string by `EProviderProtocolJsonConverter` |
 | `BaseUrl` | `string` | Default API base URL |
+| `RequiresApiKey` | `bool?` | Optional explicit API-key requirement; when unset the requirement is derived from the configured address (a loopback host does not require a key) |
 | `ChatEndpoint` | `string` | Chat endpoint path, default `chat/completions` |
 | `ModelsEndpoint` | `string` | Model list endpoint path, default `models` |
 | `Endpoints` | `IReadOnlyDictionary<string, EndpointDefinition>?` | Optional per-operation overrides (`chat`, `models`, `messages`, `embeddings`, `decisions`); see [Wire Protocols](wire-protocols.md#per-operation-endpoint-overrides) |

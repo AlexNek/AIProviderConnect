@@ -24,6 +24,19 @@ public static class AiErrorCodes
     public const string DecisionNotSupported = "ai/decision-not-supported";
 
     /// <summary>
+    /// The read-out was requested and the response carried no <c>logprobs</c> block, which means the
+    /// host's API does not expose token probabilities. A verified gap, reported rather than papered
+    /// over with a uniform guess.
+    /// </summary>
+    public const string DecisionReadoutUnavailable = "ai/decision-readout-unavailable";
+
+    /// <summary>
+    /// The read-out found none of the declared option tokens among the reported distributions, so no
+    /// distribution over the declared options can be computed from this response.
+    /// </summary>
+    public const string DecisionReadoutUnreadable = "ai/decision-readout-unreadable";
+
+    /// <summary>
     /// The requested endpoint was not found.
     /// </summary>
     public const string EndpointNotFound = "ai/endpoint-not-found";

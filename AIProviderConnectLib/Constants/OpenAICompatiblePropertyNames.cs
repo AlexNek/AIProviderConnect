@@ -21,6 +21,8 @@ public static class OpenAICompatiblePropertyNames
     public const string Index = "index";
     public const string Input = "input";
     public const string JsonSchema = "json_schema";
+    public const string Logprob = "logprob";
+    public const string Logprobs = "logprobs";
     public const string MaxInputTokens = "max_input_tokens";
     public const string Message = "message";
     public const string Modality = "modality";
@@ -31,7 +33,9 @@ public static class OpenAICompatiblePropertyNames
     public const string Prompt = "prompt";
     public const string PromptTokens = "prompt_tokens";
     public const string ReasoningContent = "reasoning_content";
+    public const string Token = "token";
     public const string ToolCalls = "tool_calls";
+    public const string TopLogprobs = "top_logprobs";
     public const string TotalTokens = "total_tokens";
     public const string Url = "url";
     public const string Usage = "usage";

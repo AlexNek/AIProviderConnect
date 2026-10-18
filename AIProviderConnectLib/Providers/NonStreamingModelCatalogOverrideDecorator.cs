@@ -38,6 +38,9 @@ public sealed class NonStreamingModelCatalogOverrideDecorator
     /// <inheritdoc />
     public EProviderProtocol Protocol => _inner.Protocol;
 
+    /// <inheritdoc />
+    public bool RequiresApiKey => _inner.RequiresApiKey;
+
     /// <summary>
     /// True when the inner provider supports live model discovery or consumer-supplied overrides
     /// are available. "true" means either the inner provider has a live discovery API or the

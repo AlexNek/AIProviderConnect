@@ -76,6 +76,15 @@ public sealed record ProviderDefinition
     public required EProviderProtocol Protocol { get; init; }
 
     /// <summary>
+    /// Gets an optional API-key requirement declared by this definition. When set, it overrides the
+    /// value derived from the base URL; typed options override it in turn. Null means "derive from the
+    /// address", so a definition that omits the field behaves exactly as before.
+    /// </summary>
+    [JsonPropertyName("requiresApiKey")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? RequiresApiKey { get; init; }
+
+    /// <summary>
     /// Gets protocol-specific configuration key-value pairs.
     /// Keys and values are defined by each protocol implementation; the common model
     /// carries no protocol-specific knowledge.

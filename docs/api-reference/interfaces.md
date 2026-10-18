@@ -12,6 +12,7 @@ public interface IAIProvider
     string Id { get; }
     bool IsEnabled { get; }
     EProviderProtocol Protocol { get; }
+    bool RequiresApiKey { get; }   // default-implemented as true
 
     Task<ChatCompletionResponse> ChatAsync(
         ChatCompletionRequest request,
@@ -24,6 +25,7 @@ public interface IAIProvider
 | `Id` | Catalog ID, e.g. `"openai"`, `"anthropic"` |
 | `IsEnabled` | Mirrors the `Enabled` flag of the provider's options |
 | `Protocol` | Wire protocol resolved from the catalog definition |
+| `RequiresApiKey` | Effective API-key requirement: an explicit options value wins over the definition, and otherwise it is derived from the configured address (a loopback host does not require a key). Let a consumer read it without casting to the concrete provider |
 | `ChatAsync` | One chat completion round trip |
 
 Deliberately metadata-free: URLs, display names, and pricing come from
@@ -71,20 +73,29 @@ public interface IEmbeddingProvider
 
 ## IDecisionProvider
 
-Optional decision-model capability — see [Decision Models](../decisions/decision-models.md).
-A decision provider answers typed questions about application state with
-probabilities and rejects `ChatAsync` with `ai/chat-not-supported`.
+Decision capability — see [Decision Models](../decisions/decision-models.md).
+Every provider derived from `AIProviderBase` implements it: a chat-capable
+provider answers through a read-out over its own `ChatAsync`, and a
+`Decision`-rooted provider serves the decisions wire natively.
 
 ```csharp
 public interface IDecisionProvider
 {
     bool SupportsDecisions { get; }
 
+    EDecisionSource DecisionSource { get; }
+
     Task<DecisionResponse> DecideAsync(
         DecisionRequest request,
         CancellationToken cancellationToken = default);
 }
 ```
+
+| Member | Description |
+| --- | --- |
+| `SupportsDecisions` | `true` unless the read-out is switched off (`DecisionReadoutEnabled = false`) on a provider with no native surface |
+| `DecisionSource` | `EDecisionSource.Readout` or `EDecisionSource.Native`. Default-implemented as `Native` so an existing implementor keeps compiling; the base provider reports `Readout` |
+| `DecideAsync` | One decision round trip — typed answers with probabilities |
 
 ### OpenAICompatibleDecisionProvider
 
@@ -96,7 +107,9 @@ entry with `protocol: "decision"`. It implements `IAIProvider`,
 capability query. Its `IAIProvider.Protocol` reports the definition's root
 protocol (`OpenAICompatible`/`HybridGateway`), not `Decision` — the enum
 value describes the chat wire, while the decisions surface is selected by
-the `endpoints` entry. `SupportsDecisions` is `true`.
+the `endpoints` entry. `SupportsDecisions` is `true` and `DecisionSource` is
+`Native`, because the decisions surface is its own wire rather than a
+read-out.
 
 ## IModelOverrideStore
 
@@ -176,10 +189,14 @@ public interface ICredentialResolver
 ## AIProviderBase
 
 Abstract base class behind every provider implementation. Implements
-`IAIProvider` and `IModelDiscoveryProvider`, provides SSE reading, header
-and auth helpers, the shared transports (`SendChatAndParseAsync`,
-`SendGetModelsAndParseAsync`, `SendEmbeddingsAndParseAsync`,
-`SendDecisionAndParseAsync`), and the centralized HTTP error translation
-(`ThrowIfErrorAsync`). OpenAI-compatible providers inherit shared request
+`IAIProvider`, `IModelDiscoveryProvider`, and `IDecisionProvider`, provides SSE
+reading, header and auth helpers, the shared transports
+(`SendChatAndParseAsync`, `SendGetModelsAndParseAsync`,
+`SendEmbeddingsAndParseAsync`, `SendDecisionAndParseAsync`), and the
+centralized HTTP error translation (`ThrowIfErrorAsync`). The decisions
+members are the capability's default: `SupportsDecisions` reports
+`DecisionReadoutEnabled`, `DecisionSource` reports `Readout`, and `DecideAsync`
+answers through the instance's own `ChatAsync`; a native subclass overrides all
+three. OpenAI-compatible providers inherit shared request
 transport from `OpenAICompatibleProviderBase`; protocol-specific request
 building and parsing live in the `Protocols/` wire-protocol types.

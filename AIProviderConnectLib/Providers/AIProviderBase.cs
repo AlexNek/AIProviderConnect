@@ -22,7 +22,7 @@ namespace AIProviderConnect.Providers;
 /// Optional capabilities (<see cref="IStreamingChatProvider"/>, <see cref="IModelDiscoveryProvider"/>)
 /// are implemented by concrete providers.
 /// </summary>
-public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
+public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider, IDecisionProvider
 {
     /// <inheritdoc />
     public string Id => Definition.Id;
@@ -34,10 +34,15 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
     public EProviderProtocol Protocol => Definition.Protocol;
 
     /// <summary>
-    /// Indicates whether this provider requires an API key to operate.
-    /// Override to false for providers that work without authentication.
+    /// Indicates whether this provider requires an API key to operate. The value is the effective one:
+    /// the typed options value wins over the definition's, and when neither is set the requirement is
+    /// derived from the configured base URL — a loopback host does not require a key. Override to
+    /// replace the whole resolution for a provider whose rule is not address-based.
     /// </summary>
-    public virtual bool RequiresApiKey => true;
+    public virtual bool RequiresApiKey =>
+        Options.RequiresApiKey
+        ?? Definition.RequiresApiKey
+        ?? !LoopbackUrl.IsLoopback(Options.BaseUrl);
 
     /// <inheritdoc />
     public virtual bool SupportsModelDiscovery => Definition.HasModelDiscoveryApi;
@@ -162,6 +167,49 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets a value indicating whether this provider instance answers a decision request. Decisions
+    /// are a capability of every provider that can complete a chat turn, so no declaration is
+    /// required; a provider that declares a native decisions surface overrides this member together
+    /// with <see cref="DecideAsync"/>, and <see cref="AIProviderOptions.DecisionReadoutEnabled"/> set to
+    /// false reports false for the read-out. A subclass whose <see cref="ChatAsync"/> does not perform
+    /// a chat call must override this member to return false.
+    /// </summary>
+    public virtual bool SupportsDecisions => Options.DecisionReadoutEnabled;
+
+    /// <summary>
+    /// Gets the mechanism that produced an answer. The default body is the chat read-out, so this base
+    /// class reports <see cref="EDecisionSource.Readout"/>; a provider holding a native decisions wire
+    /// surface overrides it back to <see cref="EDecisionSource.Native"/>.
+    /// </summary>
+    public virtual EDecisionSource DecisionSource => EDecisionSource.Readout;
+
+    /// <summary>
+    /// Answers a decision request through the provider's own <see cref="ChatAsync"/>: the option
+    /// tokens' logprobs are renormalised over the declared options. No declaration is required, and a
+    /// provider whose definition declares a native decisions surface overrides this member with its
+    /// own wire code. A <c>Decision</c>-rooted provider has no chat surface, so this body is never
+    /// reachable there. When <see cref="AIProviderOptions.DecisionReadoutEnabled"/> is false the call is
+    /// refused with <see cref="AiErrorCodes.DecisionNotSupported"/>.
+    /// </summary>
+    public virtual async Task<DecisionResponse> DecideAsync(
+        DecisionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (!Options.DecisionReadoutEnabled)
+        {
+            throw new AiException(
+                AiErrorCodes.DecisionNotSupported,
+                $"Provider '{Id}' has the decision read-out disabled and supports no native decisions surface.");
+        }
+
+        return await new ChatReadoutDecision(this, Options, Id, Logger)
+            .ExecuteAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Default implementation of <see cref="IModelDiscoveryProvider.GetModelsAsync"/>.
     /// Throws <see cref="AiException"/> with <see cref="AiErrorCodes.ModelDiscoveryNotSupported"/>
     /// unless overridden by a concrete provider that supports model discovery.
@@ -200,7 +248,18 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
             throw new AiException(AiErrorCodes.NoBaseUrl, $"Provider '{Id}' is missing a base URL.");
 
         var effectiveApiKey = EffectiveApiKey(Options, credentials);
-        if (RequiresApiKey && string.IsNullOrWhiteSpace(effectiveApiKey))
+
+        // A layer pinned by the consumer or the definition wins over both derivations. With no
+        // per-request address override the virtual property is the gate, so a subclass override is
+        // unaffected; with one, the caller has declared the target and the effective URL is derived.
+        var declared = Options.RequiresApiKey ?? Definition.RequiresApiKey;
+        var keyRequired = declared is not null
+            ? declared.Value
+            : string.Equals(effectiveBaseUrl, Options.BaseUrl, StringComparison.OrdinalIgnoreCase)
+                ? RequiresApiKey
+                : !LoopbackUrl.IsLoopback(effectiveBaseUrl);
+
+        if (keyRequired && string.IsNullOrWhiteSpace(effectiveApiKey))
             throw new AiException(AiErrorCodes.NoApiKey, $"Provider '{Id}' is missing an API key.");
 
         EnsureAbsoluteAndHttps(effectiveBaseUrl, effectiveApiKey, surfaceLabel: null);
@@ -294,7 +353,8 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
                 $"Provider '{Id}': {subject} '{resolvedUrl}' is not a valid absolute URL.");
 
         if (!string.IsNullOrWhiteSpace(effectiveApiKey)
-            && !uri.Scheme.Equals(UriSchemes.Https, StringComparison.OrdinalIgnoreCase))
+            && !uri.Scheme.Equals(UriSchemes.Https, StringComparison.OrdinalIgnoreCase)
+            && !LoopbackUrl.IsLoopback(uri))
         {
             throw new AiException(AiErrorCodes.InvalidRequest,
                 $"Provider '{Id}': {subject} must use HTTPS when an API key is present.");
@@ -344,6 +404,40 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider
                 AiErrorCodes.InvalidRequest,
                 $"Provider '{Id}' has no model to use for the request. Supply a model in the request, via credentials, or configure a default model.");
         return effectiveModel;
+    }
+
+    /// <summary>
+    /// Rejects a Choice question whose declared option count exceeds
+    /// <see cref="AIProviderOptions.DecisionsMaxOptions"/>: the host's capability is lower than the
+    /// wire's hard limit, and a silently partial distribution is worse than a refusal. Both transports
+    /// call it before any request leaves the process; an undeclared ceiling means identical behaviour
+    /// for every shipped definition. Noul and Score questions are unaffected.
+    /// </summary>
+    /// <param name="request">The decision request about to be sent.</param>
+    /// <param name="options">The provider's options, carrying the declared ceiling.</param>
+    /// <param name="providerId">The provider id named in the failure.</param>
+    internal static void ValidateDeclaredLimits(
+        DecisionRequest request,
+        AIProviderOptions options,
+        string providerId)
+    {
+        if (options.DecisionsMaxOptions is not { } ceiling)
+            return;
+
+        foreach (var (name, question) in request.Questions)
+        {
+            if (question.Kind != EDecisionQuestionKind.Choice)
+                continue;
+
+            var optionCount = question.Criteria?.Count ?? 0;
+            if (optionCount <= ceiling)
+                continue;
+
+            throw new AiException(
+                AiErrorCodes.ConfigurationError,
+                $"Provider '{providerId}': question '{name}' declares {optionCount} options, above " +
+                $"the provider's declared decisions ceiling of {ceiling}.");
+        }
     }
 
     /// <summary>

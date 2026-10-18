@@ -25,7 +25,9 @@ public class AiErrorCodesTests
             AiErrorCodes.NoServer,
             AiErrorCodes.Timeout,
             AiErrorCodes.ProviderDisabled,
-            AiErrorCodes.ProviderMissingConfiguration
+            AiErrorCodes.ProviderMissingConfiguration,
+            AiErrorCodes.DecisionReadoutUnavailable,
+            AiErrorCodes.DecisionReadoutUnreadable
         };
 
         // Act
@@ -50,6 +52,8 @@ public class AiErrorCodesTests
     [InlineData(AiErrorCodes.Timeout, "ai/timeout")]
     [InlineData(AiErrorCodes.ProviderDisabled, "ai/provider-disabled")]
     [InlineData(AiErrorCodes.ProviderMissingConfiguration, "ai/provider-missing-configuration")]
+    [InlineData(AiErrorCodes.DecisionReadoutUnavailable, "ai/decision-readout-unavailable")]
+    [InlineData(AiErrorCodes.DecisionReadoutUnreadable, "ai/decision-readout-unreadable")]
     public void ErrorCodes_HaveExpectedValues(string errorCode, string expectedValue)
     {
         // Assert
