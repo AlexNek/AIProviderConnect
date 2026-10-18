@@ -13,6 +13,7 @@ that is mirrored as source but never installed with the package, belong in
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-18
 
 ### Fixed
 - An HTTP error whose body is a flat `{ "error": "text" }` value or a bare JSON string no longer crashes with `InvalidOperationException` while the failure report is built; it now surfaces as the usual `AiException` with its status classification, and the provider's text is appended to the message. Any other body that is not an object, or whose `error` is neither an object nor a string, yields the plain status line. Bodies that were reported correctly before are unchanged
