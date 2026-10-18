@@ -928,13 +928,16 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider, IDe
         return message;
     }
 
-    private static readonly string[] ErrorMessagePaths = ["error.message", "message"];
+    private static readonly string[] ErrorMessagePaths = ["error.message", "message", "error"];
 
     private static string? TryExtractJsonMessage(string body)
     {
         try
         {
             using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind == JsonValueKind.String)
+                return NonBlankText(doc.RootElement);
+
             foreach (var path in ErrorMessagePaths)
             {
                 var element = doc.RootElement;
@@ -942,7 +945,7 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider, IDe
                 var found = true;
                 foreach (var segment in segments)
                 {
-                    if (!element.TryGetProperty(segment, out element))
+                    if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(segment, out element))
                     {
                         found = false;
                         break;
@@ -951,8 +954,8 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider, IDe
 
                 if (found && element.ValueKind == JsonValueKind.String)
                 {
-                    var text = element.GetString() ?? string.Empty;
-                    if (!string.IsNullOrWhiteSpace(text))
+                    var text = NonBlankText(element);
+                    if (text is not null)
                         return text;
                 }
             }
@@ -962,5 +965,11 @@ public abstract class AIProviderBase : IAIProvider, IModelDiscoveryProvider, IDe
         }
 
         return null;
+    }
+
+    private static string? NonBlankText(JsonElement element)
+    {
+        var text = element.GetString();
+        return string.IsNullOrWhiteSpace(text) ? null : text;
     }
 }

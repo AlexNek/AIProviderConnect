@@ -44,8 +44,11 @@ Non-success responses are translated by `AIProviderBase.ThrowIfErrorAsync`:
 | 500 and above | `ai/no-server` |
 | Any other error status | `ai/provider-call-failed` |
 
-If the error body contains an OpenAI-style `{ "error": { "message": ... } }`
-payload, that message is appended to the exception text.
+If the error body carries a readable message, that message is appended to the
+exception text. The shapes read, in this order, are an OpenAI-style nested
+`{ "error": { "message": ... } }` payload, a root-level `{ "message": ... }` field,
+a flat `{ "error": "..." }` string, and a body that is itself one JSON string.
+A body with none of these, or with only blank text, leaves the status line alone.
 
 ## Network Errors
 
