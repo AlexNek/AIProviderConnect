@@ -11,6 +11,7 @@ section becomes the package's release notes. Changes to ScraperTool, the desktop
 that is mirrored as source but never installed with the package, belong in
 [ScraperTool/CHANGELOG.md](ScraperTool/CHANGELOG.md).
 
+
 ## [Unreleased]
 
 ### Added
