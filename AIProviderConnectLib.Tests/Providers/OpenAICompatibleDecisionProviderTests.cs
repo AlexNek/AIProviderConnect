@@ -88,6 +88,26 @@ public class OpenAICompatibleDecisionProviderTests
         new(new HttpClient(handler), options ?? Options(), Catalog(), "combined");
 
     [Fact]
+    public async Task DecideAsync_ReportsNativeSourceAndSendsUnchangedWireBody()
+    {
+        // Arrange — the combined class keeps the native decisions body; the read-out adds no field
+        using var handler = new CapturingHttpMessageHandler(DecisionResponseJson);
+        var provider = Create(handler);
+
+        // Act
+        var response = await provider.DecideAsync(DecisionRequestSample());
+
+        // Assert
+        ((IDecisionProvider)provider).DecisionSource.Should().Be(EDecisionSource.Native);
+        using var body = JsonDocument.Parse(handler.CapturedBody!);
+        body.RootElement.EnumerateObject().Select(p => p.Name)
+            .Should().Equal("model", "state", "questions");
+        body.RootElement.GetProperty("questions").GetProperty("priority")
+            .GetProperty("type").GetString().Should().Be("noul");
+        response.Answers["priority"].Noul!.ProbabilityOfYes.Should().Be(0.7);
+    }
+
+    [Fact]
     public async Task DecideAsync_WithBaseUrlOverride_BuildsRequestFromOverridePlusPath()
     {
         // Arrange — the surface sits on /api/, not under the /api/v1/ common base

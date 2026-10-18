@@ -44,6 +44,35 @@ missing base URL, or a duplicate id throws `ArgumentException`. A
 `Native`-protocol definition with no `AddProvider` registration throws
 `InvalidOperationException`.
 
+## Seeding an authored provider
+
+`SeedFromDefinition(AIProviderOptions options, ProviderDefinition definition)`
+is public. It copies a definition's base URL, endpoint paths (including every
+`endpoints` override), its `requiresApiKey` value, the read-out members, and the
+`protocolConfiguration` dictionary onto an options instance. The built-in
+registration uses it for every catalog entry; a provider registered through
+`AddProvider<TProvider>` uses it for the same reason — a `Native`-protocol id is
+skipped by the automatic registration loop, so the provider's own factory is the
+only place the definition can be applied.
+
+```csharp
+services.AddAiProviders(b => b
+    .Add(definition)                       // Protocol = EProviderProtocol.Native
+    .AddProvider<MyProvider>("my-host", sp =>
+    {
+        var options = new MyProviderOptions();
+        AIProviderServiceCollectionExtensions.SeedFromDefinition(options, definition);
+        sp.GetRequiredService<IConfiguration>()
+          .GetSection("Providers:my-host").Bind(options);   // consumer values win
+        return new MyProvider(sp.GetRequiredService<HttpClient>(), options, ...);
+    }));
+```
+
+A consumer `Configure<TOptions>` callback is applied after seeding and wins over
+every definition-seeded value. The authored class itself builds on the
+`protected` surface of `AIProviderBase` and the public wire maps — see
+[Writing your own transport](../concepts/wire-protocols.md#writing-your-own-transport).
+
 ## Endpoint Folding and Class Selection
 
 Before the protocol switch runs, each definition's `endpoints` block is
@@ -52,8 +81,10 @@ validated and folded into the named options (see
 for the precedence chain and the rejection matrix). Registration fails fast
 with `AiException` (`ai/configuration-error`) for an unknown operation key,
 an entry that changes nothing, an empty or absolute `path`, a non-HTTPS
-`baseUrl`, a `chat` entry on a KeyQuery provider without a `{model}`
-placeholder, or a `decisions` override the root protocol cannot serve.
+`baseUrl` on a routable host (a loopback address may use `http`), a `chat`
+entry on a KeyQuery provider without a `{model}` placeholder, a
+`decisionReadout` entry on a root with no chat surface, or a `decisions`
+override the root protocol cannot serve.
 
 When an `OpenAICompatible` or `HybridGateway` definition declares a
 `decisions` entry with `protocol: "decision"`, registration selects the
@@ -70,9 +101,12 @@ singleton, but its type serves two wire protocols.
 The model-override decorator chain stays capability-transparent: a provider
 id with override entries that is streaming **and** decision-capable is
 wrapped in a decorator that forwards both, so
-`is IDecisionProvider` keeps matching after decoration. Streaming-only ids
-keep the streaming decorator, and non-streaming decision providers keep the
-decision decorator.
+`is IDecisionProvider` keeps matching after decoration. A streaming id that
+also implements `IEmbeddingProvider` keeps it; one that does not (a
+`MessagesApi`, `KeyQuery`, or `Catalog` entry) gets the non-embedding variant,
+so `is IEmbeddingProvider` stays accurate. Streaming-only ids keep the
+streaming decorator, and non-streaming decision providers keep the decision
+decorator.
 
 ## Options Reference
 
@@ -91,6 +125,14 @@ All options classes live in `AIProviderConnect.Options` and derive from
 | `MaxRetryCount` | `int` | `0` | Maximum retry attempts for transient failures (rate-limit, server errors); 0 disables retry |
 | `RetryDelay` | `TimeSpan` | `1s` | Base delay between retries; actual delay uses exponential backoff with jitter |
 | `ProtocolConfiguration` | `IReadOnlyDictionary<string, string>?` | `null` | Protocol-specific key-value pairs seeded from the provider JSON manifest |
+| `RequiresApiKey` | `bool?` | `null` | Explicit API-key requirement. When set it wins over the definition; when unset the definition value applies and, failing that, the requirement is derived from the configured address — a loopback host does not require a key |
+| `DecisionReadoutEnabled` | `bool` | `true` | Whether a provider with no native decisions surface answers `DecideAsync` through the read-out; `false` restores the `ai/decision-not-supported` refusal |
+| `DecisionReadoutPromptTemplate` | `string?` | `null` | Overrides the built-in read-out prompt; placeholders `{state}`, `{instructions}`, `{options}` |
+| `DecisionReadoutOptionTokenStyle` | `string` | `"uppercaseLetter"` | Option prefix in the read-out prompt: `uppercaseLetter` (`A.`), `lowercaseLetter` (`a.`), or `levelIndex` (`0.`) |
+| `DecisionReadoutTopLogprobs` | `int` | `20` | Requested `top_logprobs` at the answer position; also the read-out's Choice-option ceiling |
+| `DecisionReadoutBoolTokens` | `string` | `"yes,no"` | The two comma-separated tokens a Noul question reads |
+| `DecisionReadoutTemperature` | `float` | `0` | Sampling temperature for a read-out chat call |
+| `DecisionsMaxOptions` | `int?` | `null` | Declared Choice-option ceiling for both transports; `null` leaves the wire's 255-option limit as the only cap |
 
 ### OpenAICompatibleProviderOptions
 

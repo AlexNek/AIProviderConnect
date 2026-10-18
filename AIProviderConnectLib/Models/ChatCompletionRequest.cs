@@ -54,4 +54,16 @@ public sealed record ChatCompletionRequest
     /// Gets the presence penalty (-2.0 to 2.0) that encourages talking about new topics.
     /// </summary>
     public float? PresencePenalty { get; init; }
+
+    /// <summary>
+    /// Gets whether the provider should return token log probabilities for the completion. Unset
+    /// omits the field from the wire request, so a provider that has no such API is never sent one.
+    /// </summary>
+    public bool? Logprobs { get; init; }
+
+    /// <summary>
+    /// Gets how many alternative tokens the provider should report at each position. Only
+    /// meaningful together with <see cref="Logprobs"/>; unset omits the field from the wire request.
+    /// </summary>
+    public int? TopLogprobs { get; init; }
 }

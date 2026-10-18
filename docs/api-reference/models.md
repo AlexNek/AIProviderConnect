@@ -14,6 +14,11 @@ All models live in the `AIProviderConnect.Models` namespace.
 | `MaxTokens` | `int?` | `null` |
 | `Tools` | `IReadOnlyList<ToolDefinition>?` | `null` |
 | `ResponseFormat` | `ResponseFormat?` | `null` |
+| `Logprobs` | `bool?` | `null` |
+| `TopLogprobs` | `int?` | `null` |
+
+`Logprobs` and `TopLogprobs` are sent only when set; the built-in consumer is
+the decisions read-out (see [Decision Models](../decisions/decision-models.md)).
 
 ### ChatMessage
 
@@ -39,6 +44,32 @@ All models live in the `AIProviderConnect.Models` namespace.
 | `FinishReason` | `string?` |
 | `ToolCalls` | `IReadOnlyList<ToolCall>?` |
 | `Usage` | `UsageInfo` |
+| `Logprobs` | `ChatContentLogprobs?` |
+
+### ChatContentLogprobs
+
+The parsed `logprobs` block of a response, one entry per generated content
+token. `null` when the protocol's API carries no logprob field — a protocol
+never invents a distribution.
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `Content` | `IReadOnlyList<ChatTokenLogprob>` | Generated tokens in generation order |
+
+### ChatTokenLogprob
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `Token` | `string` | Generated token text |
+| `Logprob` | `double` | Natural logarithm of the token's probability |
+| `TopLogprobs` | `IReadOnlyList<ChatTopLogprob>` | The reported alternatives at this position, highest first |
+
+### ChatTopLogprob
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `Token` | `string` | Candidate token text |
+| `Logprob` | `double` | Natural logarithm of the candidate's probability |
 
 ### StreamingChatChunk
 
@@ -154,7 +185,7 @@ See [Decision Models](../decisions/decision-models.md) for the full walkthrough.
 | --- | --- | --- |
 | `Id` | `string` | Response identifier |
 | `Model` | `string` | Model snapshot that served the request |
-| `Provider` | `string` | Serving provider name reported by the host |
+| `Provider` | `string` | Serving provider name reported by the host; `string.Empty` for a read-out, because a chat response carries no provider-name field |
 | `Answers` | `IReadOnlyDictionary<string, DecisionAnswer>` | One typed answer per question, keyed by question name |
 | `Usage` | `UsageInfo` | Token accounting, including `Cost` when reported |
 
@@ -178,6 +209,15 @@ See [Decision Models](../decisions/decision-models.md) for the full walkthrough.
 | `ChoiceAnswer` | `Selected` (`string`), `Confidence` (`double`), `Probabilities` (`IReadOnlyDictionary<string, double>`) |
 | `NoulAnswer` | `ProbabilityOfYes` (`double`) |
 | `ScoreAnswer` | `Score` (`double` — continuous over the zero-based level indices), `Confidence` (`double`), `LevelProbabilities` (`IReadOnlyDictionary<string, double>` keyed by level index), `Legend` (`IReadOnlyList<string>` — labels in index order) |
+
+### EDecisionSource
+
+`Native` · `Readout` — the mechanism that produced the answer, reported by
+`IDecisionProvider.DecisionSource`. It is not the provenance of the checkpoint:
+a locally hosted reproduction of the decisions format reports `Native` just
+like the hosted model, and which model actually answered travels in
+`DecisionResponse.Model`. The interface member is default-implemented as
+`Native`; the base provider reports `Readout`.
 
 ## Credential Models
 
@@ -225,7 +265,9 @@ the dictionary directly.
 ### ProviderDefinition
 
 Immutable record loaded from embedded JSON — full field list in
-[Provider Catalog](../concepts/provider-catalog.md).
+[Provider Catalog](../concepts/provider-catalog.md). `RequiresApiKey`
+(`bool?`) is an optional explicit API-key requirement that wins over the
+address-derived default.
 
 ### AIModel
 
@@ -256,7 +298,11 @@ fields are applied. See
 ### EProviderProtocol
 
 `Native` · `OpenAICompatible` · `MessagesApi` · `KeyQuery` · `Catalog` ·
-`HybridGateway` · `Decision`
+`HybridGateway` · `Decision` · `DecisionReadout`
+
+`DecisionReadout` is only meaningful as a `decisions` endpoint override: it
+declares the read-out on a chat-capable root and is not a definition's root
+protocol. See [Wire Protocols](../concepts/wire-protocols.md#protocol-mapping).
 
 ### EModelCapability
 

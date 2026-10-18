@@ -49,7 +49,10 @@ public sealed class DecisionProvider : AIProviderBase, IDecisionProvider
     }
 
     /// <inheritdoc />
-    public bool SupportsDecisions => true;
+    public override bool SupportsDecisions => true;
+
+    /// <inheritdoc />
+    public override EDecisionSource DecisionSource => EDecisionSource.Native;
 
     /// <inheritdoc />
     public override bool SupportsModelDiscovery => false;
@@ -66,7 +69,7 @@ public sealed class DecisionProvider : AIProviderBase, IDecisionProvider
             $"Provider '{Id}' is a decision provider and does not support chat. Use DecideAsync.");
 
     /// <inheritdoc />
-    public async Task<DecisionResponse> DecideAsync(
+    public override async Task<DecisionResponse> DecideAsync(
         DecisionRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -76,6 +79,7 @@ public sealed class DecisionProvider : AIProviderBase, IDecisionProvider
         EnsureProviderEnabled(credentials);
 
         var requestWithModel = request with { Model = ResolveEffectiveModelOrThrow(request.Model, credentials) };
+        ValidateDeclaredLimits(requestWithModel, Options, Id);
 
         return await SendDecisionAndParseAsync(
             _decisionsEndpoint,

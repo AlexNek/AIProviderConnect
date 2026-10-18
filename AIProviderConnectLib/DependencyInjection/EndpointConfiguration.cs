@@ -1,6 +1,7 @@
 using AIProviderConnect.Constants;
 using AIProviderConnect.Exceptions;
 using AIProviderConnect.Models;
+using AIProviderConnect.Providers;
 
 namespace AIProviderConnect.DependencyInjection;
 
@@ -48,6 +49,23 @@ internal static class EndpointConfiguration
         return entry?.Protocol == EProviderProtocol.Decision;
     }
 
+    /// <summary>
+    /// Resolves the effective decisions surface a definition declares. Returns true only when the
+    /// <c>decisions</c> entry pins a protocol; <paramref name="surface"/> then carries that protocol,
+    /// otherwise it carries the primary protocol and the caller treats decisions as the provider's
+    /// default read-out capability. Unlike <see cref="TryGetDecisionsOverride"/> this reports a
+    /// <c>decisionReadout</c> pin as well as a native <c>decision</c> surface.
+    /// </summary>
+    internal static bool TryGetDecisionsSurface(
+        ProviderDefinition definition,
+        out EndpointDefinition? entry,
+        out EProviderProtocol surface)
+    {
+        entry = EndpointOperations.Find(definition.Endpoints, EndpointOperations.Decisions);
+        surface = entry?.Protocol ?? definition.Protocol;
+        return entry?.Protocol is not null;
+    }
+
     private static void ValidateEntry(
         string providerId,
         string key,
@@ -90,11 +108,13 @@ internal static class EndpointConfiguration
 
         if (entry.BaseUrl is not null
             && (!Uri.TryCreate(entry.BaseUrl, UriKind.Absolute, out var baseUri)
-                || !baseUri.Scheme.Equals(UriSchemes.Https, StringComparison.OrdinalIgnoreCase)))
+                || (!baseUri.Scheme.Equals(UriSchemes.Https, StringComparison.OrdinalIgnoreCase)
+                    && !LoopbackUrl.IsLoopback(baseUri))))
         {
             throw new AiException(
                 AiErrorCodes.ConfigurationError,
-                $"Provider '{providerId}': endpoints['{operation}'].baseUrl must be an absolute https URL.");
+                $"Provider '{providerId}': endpoints['{operation}'].baseUrl must be an absolute https " +
+                "URL, or an absolute http URL on a loopback host.");
         }
 
         if (operation == EndpointOperations.Chat
@@ -118,6 +138,20 @@ internal static class EndpointConfiguration
                 AiErrorCodes.ConfigurationError,
                 $"Provider '{providerId}': the {definition.Protocol} primary has no class serving " +
                 "chat and decisions together; a decisions protocol override is not usable here.");
+        }
+
+        if (operation == EndpointOperations.Decisions
+            && entry.Protocol == EProviderProtocol.DecisionReadout
+            && definition.Protocol is not (EProviderProtocol.OpenAICompatible
+                or EProviderProtocol.HybridGateway
+                or EProviderProtocol.MessagesApi
+                or EProviderProtocol.KeyQuery
+                or EProviderProtocol.Catalog))
+        {
+            throw new AiException(
+                AiErrorCodes.ConfigurationError,
+                $"Provider '{providerId}': the {definition.Protocol} primary has no chat surface; " +
+                "a decisionReadout override is not usable here.");
         }
 
         if (entry.AdditionalQueryParameter is not null)

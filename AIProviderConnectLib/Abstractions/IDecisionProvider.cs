@@ -16,6 +16,14 @@ public interface IDecisionProvider
     bool SupportsDecisions { get; }
 
     /// <summary>
+    /// Gets the mechanism that produced an answer. Defaults to <see cref="EDecisionSource.Native"/> so
+    /// existing implementors keep working; a provider whose answer comes from reading a chat
+    /// completion's option logprobs reports <see cref="EDecisionSource.Readout"/>, and every decorator
+    /// forwards the inner provider's value rather than restating it.
+    /// </summary>
+    EDecisionSource DecisionSource => EDecisionSource.Native;
+
+    /// <summary>
     /// Sends application state plus one or more typed questions and returns typed probabilistic answers.
     /// </summary>
     /// <param name="request">The decision request containing state and typed questions.</param>

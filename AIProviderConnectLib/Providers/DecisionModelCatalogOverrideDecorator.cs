@@ -43,7 +43,13 @@ public sealed class DecisionModelCatalogOverrideDecorator
     public EProviderProtocol Protocol => _inner.Protocol;
 
     /// <inheritdoc />
+    public bool RequiresApiKey => _inner.RequiresApiKey;
+
+    /// <inheritdoc />
     public bool SupportsDecisions => _innerDecision.SupportsDecisions;
+
+    /// <inheritdoc />
+    public EDecisionSource DecisionSource => _innerDecision.DecisionSource;
 
     /// <summary>
     /// True when the inner provider supports live model discovery or consumer-supplied overrides

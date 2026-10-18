@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using AIProviderConnect.Abstractions;
 using AIProviderConnect.Constants;
 using AIProviderConnect.Models;
@@ -128,10 +130,26 @@ public static class AIProviderServiceCollectionExtensions
         return services;
     }
 
-    internal static void SeedFromDefinition(AIProviderOptions options, ProviderDefinition definition)
+    /// <summary>
+    /// Seeds a provider's options from its definition: base URL, endpoint paths (including the
+    /// <c>endpoints</c> overrides), the declared API-key requirement, the protocol-independent
+    /// read-out and ceiling members, and the protocol configuration dictionary. Public so an
+    /// authored provider registered through <c>AddProvider&lt;TProvider&gt;</c> gets seeding identical
+    /// to a built-in protocol — a <c>Native</c> id is skipped by the registration loop, so its own
+    /// factory is the only place the definition can be applied.
+    /// </summary>
+    /// <param name="options">The options instance to seed.</param>
+    /// <param name="definition">The definition to read from.</param>
+    public static void SeedFromDefinition(AIProviderOptions options, ProviderDefinition definition)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(definition);
+
         if (!string.IsNullOrEmpty(definition.BaseUrl))
             options.BaseUrl = definition.BaseUrl;
+
+        if (definition.RequiresApiKey is { } requiresApiKey)
+            options.RequiresApiKey = requiresApiKey;
 
         // Independent `is` checks, not a switch: OpenAICompatibleProviderOptions matches
         // IChatAndModelsEndpointOptions first, so an appended interface arm would be unreachable.
@@ -210,6 +228,64 @@ public static class AIProviderServiceCollectionExtensions
 
         // Copy protocol-specific configuration generically — no key knowledge here.
         options.ProtocolConfiguration = definition.ProtocolConfiguration;
+
+        // The read-out is protocol-independent, so its keys are seeded here rather than in a
+        // protocol's ApplyProtocolConfiguration: the plain OpenAICompatible and HybridGateway arms
+        // run no protocol hook at all, and those are where most read-out hosts live.
+        SeedReadoutConfiguration(options, definition.ProtocolConfiguration);
+    }
+
+    /// <summary>
+    /// Copies the protocol-independent read-out keys and the declared option ceiling from a
+    /// definition's <c>protocolConfiguration</c> block onto the typed members. An unparsable or
+    /// absent value leaves the member at its default; a consumer's named-options callback is
+    /// applied after this seeding and therefore wins.
+    /// </summary>
+    internal static void SeedReadoutConfiguration(
+        AIProviderOptions options,
+        IReadOnlyDictionary<string, string>? protocolConfiguration)
+    {
+        if (protocolConfiguration is null)
+            return;
+
+        if (protocolConfiguration.TryGetValue(
+                ReadoutConfigurationKeys.PromptTemplate, out var promptTemplate))
+        {
+            options.DecisionReadoutPromptTemplate = promptTemplate;
+        }
+
+        if (protocolConfiguration.TryGetValue(
+                ReadoutConfigurationKeys.OptionTokenStyle, out var optionTokenStyle))
+        {
+            options.DecisionReadoutOptionTokenStyle = optionTokenStyle;
+        }
+
+        if (protocolConfiguration.TryGetValue(
+                ReadoutConfigurationKeys.TopLogprobs, out var topLogprobs)
+            && int.TryParse(topLogprobs, NumberStyles.Integer, CultureInfo.InvariantCulture, out var topLogprobsValue))
+        {
+            options.DecisionReadoutTopLogprobs = topLogprobsValue;
+        }
+
+        if (protocolConfiguration.TryGetValue(
+                ReadoutConfigurationKeys.NoulTokens, out var noulTokens))
+        {
+            options.DecisionReadoutBoolTokens = noulTokens;
+        }
+
+        if (protocolConfiguration.TryGetValue(
+                ReadoutConfigurationKeys.Temperature, out var temperature)
+            && float.TryParse(temperature, NumberStyles.Float, CultureInfo.InvariantCulture, out var temperatureValue))
+        {
+            options.DecisionReadoutTemperature = temperatureValue;
+        }
+
+        if (protocolConfiguration.TryGetValue(
+                ReadoutConfigurationKeys.MaxOptions, out var maxOptions)
+            && int.TryParse(maxOptions, NumberStyles.Integer, CultureInfo.InvariantCulture, out var maxOptionsValue))
+        {
+            options.DecisionsMaxOptions = maxOptionsValue;
+        }
     }
 
     private static void Register<TOptions, TProvider>(
@@ -363,14 +439,26 @@ public static class AIProviderServiceCollectionExtensions
         if (store is null || store.Get(providerId).Count == 0)
             return inner;
 
+        // Decisions are a capability of the base class now, so the streaming + decisions test is true
+        // for every streaming provider. The embeddings dimension keeps the "is" checks honest: only
+        // an inner that actually implements IEmbeddingProvider may resolve to a decorator that
+        // declares it.
         if (inner is IStreamingChatProvider && inner is IDecisionProvider)
-            return new StreamingDecisionModelCatalogOverrideDecorator(inner, store);
+        {
+            return inner is IEmbeddingProvider
+                ? new StreamingDecisionModelCatalogOverrideDecorator(inner, store)
+                : new StreamingDecisionNonEmbeddingModelCatalogOverrideDecorator(inner, store);
+        }
 
         if (inner is IStreamingChatProvider)
             return new ModelCatalogOverrideDecorator(inner, store);
 
         if (inner is IDecisionProvider)
-            return new DecisionModelCatalogOverrideDecorator(inner, store);
+        {
+            return inner is IEmbeddingProvider
+                ? new DecisionEmbeddingModelCatalogOverrideDecorator(inner, store)
+                : new DecisionModelCatalogOverrideDecorator(inner, store);
+        }
 
         return new NonStreamingModelCatalogOverrideDecorator(inner, store);
     }

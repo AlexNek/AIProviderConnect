@@ -79,6 +79,25 @@ public class DecisionProviderTests
         // Assert
         provider.Should().BeAssignableTo<IDecisionProvider>();
         ((IDecisionProvider)provider).SupportsDecisions.Should().BeTrue();
+        ((IDecisionProvider)provider).DecisionSource.Should().Be(EDecisionSource.Native);
+    }
+
+    [Fact]
+    public async Task DecideAsync_RequestBody_RemainsTheDecisionsWireShape()
+    {
+        // Arrange — the universal capability must not add a chat field to the native body
+        using var handler = new CapturingHttpMessageHandler(DecisionResponseJson);
+        var provider = CreateProvider(handler);
+
+        // Act
+        await provider.DecideAsync(Request());
+
+        // Assert
+        using var body = JsonDocument.Parse(handler.CapturedBody!);
+        body.RootElement.EnumerateObject().Select(p => p.Name)
+            .Should().Equal("model", "state", "questions");
+        body.RootElement.GetProperty("questions").GetProperty("priority")
+            .GetProperty("type").GetString().Should().Be("noul");
     }
 
     [Fact]

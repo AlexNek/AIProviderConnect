@@ -56,10 +56,13 @@ public sealed class OpenAICompatibleDecisionProvider
     }
 
     /// <inheritdoc />
-    public bool SupportsDecisions => true;
+    public override bool SupportsDecisions => true;
 
     /// <inheritdoc />
-    public async Task<DecisionResponse> DecideAsync(
+    public override EDecisionSource DecisionSource => EDecisionSource.Native;
+
+    /// <inheritdoc />
+    public override async Task<DecisionResponse> DecideAsync(
         DecisionRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -69,6 +72,7 @@ public sealed class OpenAICompatibleDecisionProvider
         EnsureProviderEnabled(credentials);
 
         var requestWithModel = request with { Model = ResolveEffectiveModelOrThrow(request.Model, credentials) };
+        ValidateDeclaredLimits(requestWithModel, Options, Id);
 
         return await SendDecisionAndParseAsync(
             _decisionsEndpoint,

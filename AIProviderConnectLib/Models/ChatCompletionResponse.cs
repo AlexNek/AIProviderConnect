@@ -41,4 +41,11 @@ public sealed record ChatCompletionResponse
     /// Gets the token usage information.
     /// </summary>
     public UsageInfo Usage { get; init; } = new();
+
+    /// <summary>
+    /// Gets the parsed <c>logprobs</c> block, or null when the provider's response carried none.
+    /// This is the flattened response record <c>ChatAsync</c> returns, so a reader never needs a
+    /// wire-level <c>choices</c> array to reach the block.
+    /// </summary>
+    public ChatContentLogprobs? Logprobs { get; init; }
 }

@@ -13,6 +13,7 @@ public static class ProviderProtocolMapper
                 ["githubmodelscompatible"] = EProviderProtocol.Catalog,
                 ["hybridgateway"] = EProviderProtocol.HybridGateway,
                 ["decision"] = EProviderProtocol.Decision,
+                ["decisionreadout"] = EProviderProtocol.DecisionReadout,
                 ["native"] = EProviderProtocol.Native,
             };
 

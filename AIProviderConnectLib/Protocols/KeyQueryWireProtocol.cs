@@ -69,11 +69,7 @@ public static class KeyQueryWireProtocol
                                                               }
                                               },
             ["contents"] = contents,
-            ["generationConfig"] = new
-                                   {
-                                       temperature = request.Temperature,
-                                       maxOutputTokens = request.MaxTokens
-                                   }
+            ["generationConfig"] = MapGenerationConfig(request)
         };
 
         if (request.Tools is { Count: > 0 })
@@ -208,10 +204,17 @@ public static class KeyQueryWireProtocol
     {
         var content = string.Empty;
         IReadOnlyList<ToolCall>? toolCalls = null;
+        ChatContentLogprobs? logprobs = null;
 
         if (json.TryGetProperty(KeyQueryPropertyNames.Candidates, out var candidates)
-            && candidates.GetArrayLength() > 0
-            && candidates[0].TryGetProperty(KeyQueryPropertyNames.Content, out var contentNode)
+            && candidates.GetArrayLength() > 0)
+        {
+            logprobs = ParseLogprobs(candidates[0]);
+        }
+
+        if (json.TryGetProperty(KeyQueryPropertyNames.Candidates, out var candidatesForContent)
+            && candidatesForContent.GetArrayLength() > 0
+            && candidatesForContent[0].TryGetProperty(KeyQueryPropertyNames.Content, out var contentNode)
             && contentNode.TryGetProperty(KeyQueryPropertyNames.Parts, out var parts))
         {
             var textParts = new List<string>();
@@ -259,8 +262,101 @@ public static class KeyQueryWireProtocol
                        Model = model,
                        Content = content,
                        ToolCalls = toolCalls,
-                       Usage = usage
+                       Usage = usage,
+                       Logprobs = logprobs
                    };
+    }
+
+    /// <summary>
+    /// Maps the <c>generationConfig</c> block. The logprob fields are emitted only when the request
+    /// asked for log probabilities, so an ordinary chat request keeps its current body byte for byte.
+    /// </summary>
+    private static object MapGenerationConfig(ChatCompletionRequest request)
+    {
+        if (request.Logprobs != true)
+        {
+            return new
+                       {
+                           temperature = request.Temperature,
+                           maxOutputTokens = request.MaxTokens
+                       };
+        }
+
+        return new
+                   {
+                       temperature = request.Temperature,
+                       maxOutputTokens = request.MaxTokens,
+                       responseLogprobs = true,
+                       logprobs = request.TopLogprobs
+                   };
+    }
+
+    // Reads candidates[0].logprobsResult. The first decoding step is the answer position; its
+    // candidates become the alternative list, and chosenCandidates[0] is the generated token.
+    private static ChatContentLogprobs? ParseLogprobs(JsonElement candidate)
+    {
+        if (!candidate.TryGetProperty(KeyQueryPropertyNames.LogprobsResult, out var result)
+            || result.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (!result.TryGetProperty(KeyQueryPropertyNames.TopCandidates, out var topCandidates)
+            || topCandidates.ValueKind != JsonValueKind.Array
+            || topCandidates.GetArrayLength() == 0)
+        {
+            return null;
+        }
+
+        var tops = new List<ChatTopLogprob>();
+        if (topCandidates[0].ValueKind == JsonValueKind.Object
+            && topCandidates[0].TryGetProperty(KeyQueryPropertyNames.Candidates, out var stepCandidates)
+            && stepCandidates.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var entry in stepCandidates.EnumerateArray())
+            {
+                if (TryReadCandidate(entry, out var token, out var logprob))
+                    tops.Add(new ChatTopLogprob(token, logprob));
+            }
+        }
+
+        if (tops.Count == 0)
+            return null;
+
+        var chosenToken = tops[0].Token;
+        var chosenLogprob = tops[0].Logprob;
+        if (result.TryGetProperty(KeyQueryPropertyNames.ChosenCandidates, out var chosen)
+            && chosen.ValueKind == JsonValueKind.Array
+            && chosen.GetArrayLength() > 0
+            && TryReadCandidate(chosen[0], out var chosenTokenValue, out var chosenLogprobValue))
+        {
+            chosenToken = chosenTokenValue;
+            chosenLogprob = chosenLogprobValue;
+        }
+
+        return new ChatContentLogprobs
+                   {
+                       Content = [new ChatTokenLogprob(chosenToken, chosenLogprob, tops)]
+                   };
+    }
+
+    private static bool TryReadCandidate(JsonElement entry, out string token, out double logprob)
+    {
+        token = string.Empty;
+        logprob = 0d;
+
+        if (entry.ValueKind != JsonValueKind.Object
+            || !entry.TryGetProperty(KeyQueryPropertyNames.Token, out var tokenProp)
+            || tokenProp.ValueKind != JsonValueKind.String
+            || !entry.TryGetProperty(KeyQueryPropertyNames.LogProbability, out var logprobProp)
+            || logprobProp.ValueKind != JsonValueKind.Number
+            || !logprobProp.TryGetDouble(out logprob))
+        {
+            return false;
+        }
+
+        token = tokenProp.GetString() ?? string.Empty;
+        return true;
     }
 
     public static StreamingChatChunk? ParseStreamChunk(JsonElement json)

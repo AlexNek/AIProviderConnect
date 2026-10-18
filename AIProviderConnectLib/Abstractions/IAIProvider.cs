@@ -25,6 +25,14 @@ public interface IAIProvider
     EProviderProtocol Protocol { get; }
 
     /// <summary>
+    /// Gets a value indicating whether this provider requires an API key. The value is the effective
+    /// one: an explicit options or definition value when declared, otherwise derived from the
+    /// configured address (a loopback host does not require a key). A consumer reads it directly,
+    /// without casting to the concrete provider or looking the definition up in the catalog.
+    /// </summary>
+    bool RequiresApiKey => true;
+
+    /// <summary>
     /// Sends a chat completion request and receives a response.
     /// </summary>
     /// <param name="request">The chat completion request.</param>
