@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using AIProviderConnect.Constants;
 using AIProviderConnect.Models;
 using AIProviderConnect.Options;
@@ -6,6 +8,7 @@ using AIProviderConnect.Services;
 using AIProviderConnect.Tests.TestDoubles;
 
 using FluentAssertions;
+using FluentAssertions.Execution;
 
 namespace AIProviderConnectLib.Tests.Providers;
 
@@ -31,6 +34,25 @@ public class OpenAICompatibleProviderTests
         handler.LastRequest.Headers.Authorization.Parameter.Should().Be("fake-api-key");
         handler.LastRequest.Headers.GetValues("X-Test").Should().Equal("test-value");
         handler.LastRequest.RequestUri!.Host.Should().Be("test.example.com");
+    }
+
+    [Fact]
+    public async Task ChatAsync_UnsetOptionalFields_AreAbsentFromCapturedBody()
+    {
+        // Arrange
+        using var handler = new CapturingHttpMessageHandler("{}");
+        using var client = new HttpClient(handler);
+        var provider = CreateProvider(client);
+
+        // Act
+        await InvokeAsync(provider, "chat");
+
+        // Assert
+        using var body = JsonDocument.Parse(handler.CapturedBody!);
+        using var scope = new AssertionScope();
+        body.RootElement.TryGetProperty("response_format", out _).Should().BeFalse();
+        body.RootElement.TryGetProperty("tools", out _).Should().BeFalse();
+        body.RootElement.TryGetProperty("max_tokens", out _).Should().BeFalse();
     }
 
     private static OpenAICompatibleProvider CreateProvider(HttpClient client) =>

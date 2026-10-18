@@ -104,11 +104,17 @@ public static class OpenAICompatibleWireProtocol
             ["model"] = request.Model,
             ["messages"] = messages,
             ["temperature"] = request.Temperature,
-            ["max_tokens"] = request.MaxTokens,
-            ["stream"] = stream,
-            ["response_format"] = responseFormat,
-            ["tools"] = tools
+            ["stream"] = stream
         };
+
+        if (request.MaxTokens.HasValue)
+            body["max_tokens"] = request.MaxTokens;
+
+        if (responseFormat is not null)
+            body["response_format"] = responseFormat;
+
+        if (tools is not null)
+            body["tools"] = tools;
 
         if (request.Stop is { Count: > 0 })
             body["stop"] = request.Stop;
