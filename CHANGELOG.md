@@ -13,6 +13,11 @@ that is mirrored as source but never installed with the package, belong in
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-18
+
+### Fixed
+- An HTTP error whose body is a flat `{ "error": "text" }` value or a bare JSON string no longer crashes with `InvalidOperationException` while the failure report is built; it now surfaces as the usual `AiException` with its status classification, and the provider's text is appended to the message. Any other body that is not an object, or whose `error` is neither an object nor a string, yields the plain status line. Bodies that were reported correctly before are unchanged
+
 ## [1.3.0] - 2026-10-18
 
 ### Added
@@ -77,5 +82,8 @@ that is mirrored as source but never installed with the package, belong in
 
 <!--## [1.0.0] — 2026-06-20-->
 
-[Unreleased]: https://github.com/AlexNek/AIProviderConnect/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/AlexNek/AIProviderConnect/compare/v1.3.0...HEAD
 [1.0.0]: https://github.com/AlexNek/AIProviderConnect/releases/tag/v1.0.0
+[1.1.0]: https://github.com/AlexNek/AIProviderConnect/releases/tag/v1.1.0
+[1.2.0]: https://github.com/AlexNek/AIProviderConnect/releases/tag/v1.2.0
+[1.3.0]: https://github.com/AlexNek/AIProviderConnect/releases/tag/v1.3.0

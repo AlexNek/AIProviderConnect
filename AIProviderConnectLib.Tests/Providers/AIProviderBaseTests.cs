@@ -17,6 +17,9 @@ namespace AIProviderConnectLib.Tests.Providers;
 
 public class AIProviderBaseTests
 {
+    private const string BadRequestStatusLine =
+        "HTTP 400: The request was rejected — check that the configured model name and base URL are correct.";
+
     private static OpenAICompatibleProvider CreateProvider(
         HttpMessageHandler handler,
         int maxRetryCount = 0,
@@ -79,6 +82,45 @@ public class AIProviderBaseTests
         exception.Code.Should().Be(expectedCode);
         exception.Message.Should().Be($"HTTP {statusCode}: {expectedMessage}");
         exception.Message.Should().NotContain("AI Setup");
+    }
+
+    [Theory]
+    [InlineData("""{"error":{"message":"nested detail"}}""", "nested detail")]
+    [InlineData("""{"message":"root detail"}""", "root detail")]
+    [InlineData("""{"error":"flat detail"}""", "flat detail")]
+    [InlineData("\"bare detail\"", "bare detail")]
+    public async Task HttpError_BodyCarriesMessage_AppendsProviderDetail(string body, string expectedDetail)
+    {
+        // Arrange
+        using var handler = new ScriptedStatusHttpMessageHandler(body, HttpStatusCode.BadRequest);
+        var provider = CreateProvider(handler);
+
+        // Act
+        Func<Task> act = () => provider.GetModelsAsync();
+
+        // Assert
+        var exception = (await act.Should().ThrowAsync<AiException>()).Which;
+        exception.Code.Should().Be(AiErrorCodes.InvalidRequest);
+        exception.Message.Should().Be($"{BadRequestStatusLine} — {expectedDetail}");
+    }
+
+    [Theory]
+    [InlineData("""{"error":null}""")]
+    [InlineData("""[1,2]""")]
+    [InlineData("\"   \"")]
+    public async Task HttpError_BodyWithoutReadableMessage_KeepsBareStatusLine(string body)
+    {
+        // Arrange
+        using var handler = new ScriptedStatusHttpMessageHandler(body, HttpStatusCode.BadRequest);
+        var provider = CreateProvider(handler);
+
+        // Act
+        Func<Task> act = () => provider.GetModelsAsync();
+
+        // Assert
+        var exception = (await act.Should().ThrowAsync<AiException>()).Which;
+        exception.Code.Should().Be(AiErrorCodes.InvalidRequest);
+        exception.Message.Should().Be(BadRequestStatusLine);
     }
 
     [Fact]
