@@ -12,7 +12,11 @@ public static class KeyQueryPropertyNames
 
     public const string Content = "content";
 
+    public const string Contents = "contents";
+
     public const string DisplayName = "displayName";
+
+    public const string FileUri = "fileUri";
 
     public const string FinishReason = "finishReason";
 
@@ -22,9 +26,13 @@ public static class KeyQueryPropertyNames
 
     public const string FunctionResponse = "functionResponse";
 
+    public const string GenerationConfig = "generationConfig";
+
     public const string LogProbability = "logProbability";
 
     public const string LogprobsResult = "logprobsResult";
+
+    public const string MimeType = "mimeType";
 
     public const string Models = "models";
 
@@ -37,6 +45,8 @@ public static class KeyQueryPropertyNames
     public const string Response = "response";
 
     public const string Role = "role";
+
+    public const string SystemInstruction = "systemInstruction";
 
     public const string Text = "text";
 

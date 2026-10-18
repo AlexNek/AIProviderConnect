@@ -4,6 +4,7 @@ using AIProviderConnect.Models;
 using AIProviderConnect.Protocols;
 
 using FluentAssertions;
+using FluentAssertions.Execution;
 
 namespace AIProviderConnectLib.Tests.Protocols;
 
@@ -628,6 +629,133 @@ public class OpenAICompatibleWireProtocolTests
         root.TryGetProperty("top_p", out _).Should().BeFalse();
         root.TryGetProperty("frequency_penalty", out _).Should().BeFalse();
         root.TryGetProperty("presence_penalty", out _).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MapRequest_UnsetMaxTokensResponseFormatAndTools_OmitsKeys(bool stream)
+    {
+        // Arrange
+        var request = new ChatCompletionRequest
+        {
+            Model = "test-model",
+            Messages = [new ChatMessage { Role = EChatRole.User, Content = "Hello" }]
+        };
+
+        // Act
+        var payload = OpenAICompatibleWireProtocol.MapRequest(request, stream);
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(payload));
+        var root = doc.RootElement;
+
+        // Assert
+        using var scope = new AssertionScope();
+        root.TryGetProperty("max_tokens", out _).Should().BeFalse();
+        root.TryGetProperty("response_format", out _).Should().BeFalse();
+        root.TryGetProperty("tools", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void MapRequest_WithMaxTokens_EmitsValue()
+    {
+        // Arrange
+        var request = new ChatCompletionRequest
+        {
+            Model = "test-model",
+            Messages = [new ChatMessage { Role = EChatRole.User, Content = "Hello" }],
+            MaxTokens = 256
+        };
+
+        // Act
+        var payload = OpenAICompatibleWireProtocol.MapRequest(request, stream: false);
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(payload));
+
+        // Assert
+        doc.RootElement.GetProperty("max_tokens").GetInt32().Should().Be(256);
+    }
+
+    [Fact]
+    public void MapRequest_WithJsonSchemaResponseFormat_EmitsFormat()
+    {
+        // Arrange
+        using var schema = JsonDocument.Parse("""{"type":"object"}""");
+        var request = new ChatCompletionRequest
+        {
+            Model = "test-model",
+            Messages = [new ChatMessage { Role = EChatRole.User, Content = "Hello" }],
+            ResponseFormat = new ResponseFormat
+            {
+                Type = "json_schema",
+                JsonSchema = new JsonSchemaDefinition
+                {
+                    Name = "answer",
+                    Schema = schema.RootElement.Clone(),
+                    Strict = false
+                }
+            }
+        };
+
+        // Act
+        var payload = OpenAICompatibleWireProtocol.MapRequest(request, stream: false);
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(payload));
+        var format = doc.RootElement.GetProperty("response_format");
+
+        // Assert
+        format.GetProperty("type").GetString().Should().Be("json_schema");
+        var jsonSchema = format.GetProperty("json_schema");
+        jsonSchema.GetProperty("name").GetString().Should().Be("answer");
+        jsonSchema.GetProperty("strict").GetBoolean().Should().BeFalse();
+        jsonSchema.GetProperty("schema").GetProperty("type").GetString().Should().Be("object");
+    }
+
+    [Fact]
+    public void MapRequest_WithNonJsonSchemaResponseFormat_OmitsFormat()
+    {
+        // Arrange
+        var request = new ChatCompletionRequest
+        {
+            Model = "test-model",
+            Messages = [new ChatMessage { Role = EChatRole.User, Content = "Hello" }],
+            ResponseFormat = new ResponseFormat { Type = "json_object" }
+        };
+
+        // Act
+        var payload = OpenAICompatibleWireProtocol.MapRequest(request, stream: false);
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(payload));
+
+        // Assert
+        doc.RootElement.TryGetProperty("response_format", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void MapRequest_WithOneTool_EmitsFunctionEntry()
+    {
+        // Arrange
+        using var parameters = JsonDocument.Parse("""{"type":"object"}""");
+        var request = new ChatCompletionRequest
+        {
+            Model = "test-model",
+            Messages = [new ChatMessage { Role = EChatRole.User, Content = "Hello" }],
+            Tools =
+            [
+                new ToolDefinition
+                {
+                    Name = "get_weather",
+                    Description = "Gets the weather",
+                    Parameters = parameters.RootElement.Clone()
+                }
+            ]
+        };
+
+        // Act
+        var payload = OpenAICompatibleWireProtocol.MapRequest(request, stream: false);
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(payload));
+        var tools = doc.RootElement.GetProperty("tools");
+
+        // Assert
+        tools.GetArrayLength().Should().Be(1);
+        tools[0].GetProperty("type").GetString().Should().Be("function");
+        tools[0].GetProperty("function").GetProperty("name").GetString().Should().Be("get_weather");
     }
 
     [Fact]

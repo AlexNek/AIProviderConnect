@@ -184,18 +184,18 @@ public static class MessagesApiProtocol
         {
             ImageSource.Base64Source(var data, var mediaType) => new
             {
-                type = "image",
+                type = MessagesApiPropertyNames.Image,
                 source = new
                 {
-                    type = "base64",
+                    type = MessagesApiPropertyNames.Base64,
                     media_type = mediaType,
                     data = Convert.ToBase64String(data)
                 }
             },
             ImageSource.UrlSource(var url) => new
             {
-                type = "image",
-                source = new { type = "url", url }
+                type = MessagesApiPropertyNames.Image,
+                source = new { type = MessagesApiPropertyNames.Url, url }
             },
             _ => throw new InvalidOperationException($"Unexpected image source type: {source.GetType().Name}")
         };

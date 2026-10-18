@@ -13,6 +13,11 @@ that is mirrored as source but never installed with the package, belong in
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-10-18
+
+### Fixed
+- OpenAI-compatible chat requests no longer send an unset `max_tokens`, `response_format`, or `tools` as `null`; the keys are now omitted. Hosts that dereference a present `response_format` (LM Studio) refused every chat, streaming, and read-out decision request with HTTP 400 `Cannot read properties of null (reading 'type')`. Set values are sent unchanged
+
 ## [1.3.1] - 2026-10-18
 
 ### Fixed

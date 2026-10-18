@@ -56,7 +56,7 @@ public static class KeyQueryWireProtocol
 
         var body = new Dictionary<string, object?>
         {
-            ["systemInstruction"] = string.IsNullOrWhiteSpace(systemInstruction)
+            [KeyQueryPropertyNames.SystemInstruction] = string.IsNullOrWhiteSpace(systemInstruction)
                                         ? null
                                         : new
                                               {
@@ -68,13 +68,13 @@ public static class KeyQueryWireProtocol
                                                                   }
                                                               }
                                               },
-            ["contents"] = contents,
-            ["generationConfig"] = MapGenerationConfig(request)
+            [KeyQueryPropertyNames.Contents] = contents,
+            [KeyQueryPropertyNames.GenerationConfig] = MapGenerationConfig(request)
         };
 
         if (request.Tools is { Count: > 0 })
         {
-            body["tools"] = new[]
+            body[KeyQueryPropertyNames.Tools] = new[]
             {
                 new
                 {
@@ -194,9 +194,9 @@ public static class KeyQueryWireProtocol
             return new { inlineData = new { mimeType = mediaType, data = Convert.ToBase64String(data) } };
 
         var url = ((ImageSource.UrlSource)source).Url;
-        var fileData = new Dictionary<string, object> { ["fileUri"] = url };
+        var fileData = new Dictionary<string, object> { [KeyQueryPropertyNames.FileUri] = url };
         if (image?.MediaType is not null)
-            fileData["mimeType"] = image.MediaType;
+            fileData[KeyQueryPropertyNames.MimeType] = image.MediaType;
         return new { fileData };
     }
 

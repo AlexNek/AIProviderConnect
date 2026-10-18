@@ -20,6 +20,8 @@ Task<ChatCompletionResponse> ChatAsync(
 | `Tools` | `IReadOnlyList<ToolDefinition>?` | `null` | Functions the model may call — see [Tool Calling](tool-calling.md) |
 | `ResponseFormat` | `ResponseFormat?` | `null` | Format constraint, e.g. structured JSON output |
 
+For OpenAI-compatible providers, an optional property left `null` is not sent to the provider.
+
 ### Messages and Roles
 
 A `ChatMessage` has `Role` (`EChatRole`), `Content`, and — for tool round

@@ -2,7 +2,11 @@ namespace AIProviderConnect.Constants;
 
 public static class MessagesApiPropertyNames
 {
+    public const string Base64 = "base64";
+
     public const string Content = "content";
+
+    public const string ContentBlock = "content_block";
 
     public const string ContentBlockDelta = "content_block_delta";
 
@@ -17,6 +21,8 @@ public static class MessagesApiPropertyNames
     public const string DisplayName = "display_name";
 
     public const string Id = "id";
+
+    public const string Image = "image";
 
     public const string Index = "index";
 
@@ -61,6 +67,8 @@ public static class MessagesApiPropertyNames
     public const string Tools = "tools";
 
     public const string Type = "type";
+
+    public const string Url = "url";
 
     public const string Usage = "usage";
 }
