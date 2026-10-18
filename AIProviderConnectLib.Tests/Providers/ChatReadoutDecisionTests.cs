@@ -256,6 +256,42 @@ public class ChatReadoutDecisionTests
     }
 
     [Fact]
+    public async Task TokenVariantsOfOneOption_CombineTheirProbabilities()
+    {
+        // Arrange — "A" and "A." are distinct tokens of the same option, so their probabilities
+        // add: (0.6 + 0.3) / (0.6 + 0.3 + 0.7), not max-only 0.6 / (0.6 + 0.7)
+        var provider = new ScriptedChatProvider().Enqueue(
+            Response("A", Ln06, [("A.", Ln03), ("B", Ln07)]));
+
+        // Act
+        var response = await RunAsync(provider, Options(), Request(("intent", ChoiceQuestion())));
+
+        // Assert
+        var choice = response.Answers["intent"].Choice!;
+        choice.Probabilities["refund"].Should().BeApproximately(0.9 / 1.6, 1e-9);
+        choice.Probabilities["technical"].Should().BeApproximately(0.7 / 1.6, 1e-9);
+        choice.Selected.Should().Be("refund");
+        choice.Confidence.Should().BeApproximately(0.9 / 1.6, 1e-9);
+    }
+
+    [Fact]
+    public async Task ChosenTokenRepeatedInTopLogprobs_IsCountedOnce()
+    {
+        // Arrange — the chosen token is also listed among the top logprobs, the common host shape;
+        // its mass must enter the combined sum once, not twice
+        var provider = new ScriptedChatProvider().Enqueue(
+            Response("A", Ln06, [("A", Ln06), ("B", Ln07)]));
+
+        // Act
+        var response = await RunAsync(provider, Options(), Request(("intent", ChoiceQuestion())));
+
+        // Assert — double-counting would give 2·0.6 / (2·0.6 + 0.7)
+        var choice = response.Answers["intent"].Choice!;
+        choice.Probabilities["refund"].Should().BeApproximately(0.6 / 1.3, 1e-9);
+        choice.Probabilities["technical"].Should().BeApproximately(0.7 / 1.3, 1e-9);
+    }
+
+    [Fact]
     public async Task MissingDeclaredOption_ContributesZero()
     {
         // Arrange — "gamma" never appears in the reported distribution

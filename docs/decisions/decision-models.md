@@ -345,7 +345,7 @@ field.
 | Code | Meaning |
 | --- | --- |
 | `ai/chat-not-supported` | `ChatAsync` was called on a `Decision`-rooted provider, which has no chat surface |
-| `ai/decision-not-supported` | A decision call was requested on a provider whose read-out is switched off (`DecisionReadoutEnabled = false`) |
+| `ai/decision-not-supported` | A decision call was requested on a provider whose read-out is switched off (`DecisionReadoutEnabled = false`) and that has no native decisions surface |
 | `ai/configuration-error` | Null state, empty questions, an unsupported state shape, a question that violates its per-kind limits, or a question whose options exceed `DecisionsMaxOptions` / `DecisionReadoutTopLogprobs` |
 | `ai/decision-readout-unavailable` | The chat response carried no `logprobs` block — the host's API does not expose token probabilities |
 | `ai/decision-readout-unreadable` | None of the declared option tokens appeared among the reported distributions |

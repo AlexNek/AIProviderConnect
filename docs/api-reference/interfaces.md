@@ -25,7 +25,7 @@ public interface IAIProvider
 | `Id` | Catalog ID, e.g. `"openai"`, `"anthropic"` |
 | `IsEnabled` | Mirrors the `Enabled` flag of the provider's options |
 | `Protocol` | Wire protocol resolved from the catalog definition |
-| `RequiresApiKey` | Effective API-key requirement: an explicit options value wins over the definition, and otherwise it is derived from the configured address (a loopback host does not require a key). Let a consumer read it without casting to the concrete provider |
+| `RequiresApiKey` | Effective API-key requirement: an explicit options value takes precedence, then the definition value applies, and the configured address determines the requirement only if both are unset (a loopback host does not require a key). A consumer reads it directly, without casting to the concrete provider |
 | `ChatAsync` | One chat completion round trip |
 
 Deliberately metadata-free: URLs, display names, and pricing come from

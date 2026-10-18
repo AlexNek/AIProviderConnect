@@ -454,7 +454,11 @@ public static class AIProviderServiceCollectionExtensions
             return new ModelCatalogOverrideDecorator(inner, store);
 
         if (inner is IDecisionProvider)
-            return new DecisionModelCatalogOverrideDecorator(inner, store);
+        {
+            return inner is IEmbeddingProvider
+                ? new DecisionEmbeddingModelCatalogOverrideDecorator(inner, store)
+                : new DecisionModelCatalogOverrideDecorator(inner, store);
+        }
 
         return new NonStreamingModelCatalogOverrideDecorator(inner, store);
     }

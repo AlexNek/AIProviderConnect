@@ -306,9 +306,11 @@ internal sealed class ChatReadoutDecision
         return null;
     }
 
-    // Reads the first generated token and its alternatives. A declared option absent from the
-    // reported distributions contributes zero; when none of them appears at all, no distribution
-    // over the declared options exists and the call is refused rather than guessed.
+    // Reads the first generated token and its alternatives. Distinct token variants that normalize
+    // to the same declared option ("A", "A.", " A") are distinct outcomes of that one option, so
+    // their probabilities add — a log-sum-exp accumulation in log space. A declared option absent
+    // from the reported distributions contributes zero; when none of them appears at all, no
+    // distribution over the declared options exists and the call is refused rather than guessed.
     private double[] ReadDistribution(ChatCompletionResponse response, IReadOnlyList<string> optionTokens)
     {
         if (response.Logprobs is null)
@@ -321,6 +323,7 @@ internal sealed class ChatReadoutDecision
 
         var logprobs = new double[optionTokens.Count];
         var found = new bool[optionTokens.Count];
+        var reportedTokens = new HashSet<string>(StringComparer.Ordinal);
 
         if (response.Logprobs.Content.Count > 0)
         {
@@ -363,17 +366,23 @@ internal sealed class ChatReadoutDecision
 
         void Consider(string token, double logprob)
         {
+            // One reported token is one outcome: the chosen token is typically also listed among
+            // the top logprobs, so a raw-string set keeps each token's mass in the combined sum
+            // exactly once. The raw string — not the normalized form — is the identity, because
+            // distinct variants of one option are separate outcomes that must all be combined.
+            if (!reportedTokens.Add(token))
+                return;
+
             var normalized = NormalizeToken(token);
             for (var index = 0; index < optionTokens.Count; index++)
             {
                 if (!string.Equals(normalized, NormalizeToken(optionTokens[index]), StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                if (!found[index] || logprob > logprobs[index])
-                {
-                    logprobs[index] = logprob;
-                    found[index] = true;
-                }
+                logprobs[index] = found[index]
+                    ? LogSumExp(logprobs[index], logprob)
+                    : logprob;
+                found[index] = true;
             }
         }
     }
@@ -449,6 +458,14 @@ internal sealed class ChatReadoutDecision
     // itself, so surrounding whitespace and a trailing period never decide a read.
     private static string NormalizeToken(string token) =>
         token.Trim().TrimEnd('.').Trim();
+
+    // log(exp(a) + exp(b)) evaluated as max + log(1 + exp(-|a - b|)) so two extreme logprobs can
+    // neither overflow nor underflow the combined mass.
+    private static double LogSumExp(double a, double b)
+    {
+        var max = Math.Max(a, b);
+        return max + Math.Log(1 + Math.Exp(-Math.Abs(a - b)));
+    }
 
     // Column-style label: A..Z, then AA, AB, … so an option count above 26 still gets a stable token.
     private string OptionPrefix(int index)
