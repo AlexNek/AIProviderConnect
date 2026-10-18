@@ -60,7 +60,7 @@ public sealed class MessagesApiStreamingParser
 
         var index = indexNode.GetInt32();
 
-        if (!json.TryGetProperty("content_block", out var block))
+        if (!json.TryGetProperty(MessagesApiPropertyNames.ContentBlock, out var block))
             return;
 
         if (!block.TryGetProperty(MessagesApiPropertyNames.Type, out var blockTypeNode))

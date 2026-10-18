@@ -101,32 +101,32 @@ public static class OpenAICompatibleWireProtocol
 
         var body = new Dictionary<string, object?>
         {
-            ["model"] = request.Model,
-            ["messages"] = messages,
-            ["temperature"] = request.Temperature,
-            ["stream"] = stream
+            [OpenAICompatiblePropertyNames.Model] = request.Model,
+            [OpenAICompatiblePropertyNames.Messages] = messages,
+            [OpenAICompatiblePropertyNames.Temperature] = request.Temperature,
+            [OpenAICompatiblePropertyNames.Stream] = stream
         };
 
         if (request.MaxTokens.HasValue)
-            body["max_tokens"] = request.MaxTokens;
+            body[OpenAICompatiblePropertyNames.MaxTokens] = request.MaxTokens;
 
         if (responseFormat is not null)
-            body["response_format"] = responseFormat;
+            body[OpenAICompatiblePropertyNames.ResponseFormat] = responseFormat;
 
         if (tools is not null)
-            body["tools"] = tools;
+            body[OpenAICompatiblePropertyNames.Tools] = tools;
 
         if (request.Stop is { Count: > 0 })
-            body["stop"] = request.Stop;
+            body[OpenAICompatiblePropertyNames.Stop] = request.Stop;
 
         if (request.TopP.HasValue)
-            body["top_p"] = request.TopP;
+            body[OpenAICompatiblePropertyNames.TopP] = request.TopP;
 
         if (request.FrequencyPenalty.HasValue)
-            body["frequency_penalty"] = request.FrequencyPenalty;
+            body[OpenAICompatiblePropertyNames.FrequencyPenalty] = request.FrequencyPenalty;
 
         if (request.PresencePenalty.HasValue)
-            body["presence_penalty"] = request.PresencePenalty;
+            body[OpenAICompatiblePropertyNames.PresencePenalty] = request.PresencePenalty;
 
         if (request.Logprobs.HasValue)
             body[OpenAICompatiblePropertyNames.Logprobs] = request.Logprobs;
